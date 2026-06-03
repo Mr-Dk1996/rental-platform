@@ -132,7 +132,15 @@ window.closeModal = closeModal;
 // GOOGLE AUTH HELPERS
 // ==========================================
 function getAppBaseUrl() {
-    return `${window.location.origin}/rental-platform/`;
+    const isLocalhost =
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === 'localhost';
+
+    if (isLocalhost) {
+        return `${window.location.origin}/rental-platform/`;
+    }
+
+    return `${window.location.origin}/`;
 }
 
 function getIndexRedirectUrl() {
