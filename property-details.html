@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Details | RentHaven Ghana</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <nav class="bg-white shadow-sm p-4 mb-8">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <a
+            href="#"
+            id="brand-home-link"
+            class="font-bold text-xl text-teal-600"
+        >
+            RentHaven Ghana
+        </a>
+
+        <div class="flex items-center gap-3">
+            <a
+                href="#"
+                id="dashboard-link"
+                class="text-sm font-medium text-gray-600 hover:text-teal-600"
+            >
+                Dashboard
+            </a>
+
+            <a
+                href="#"
+                id="browse-link"
+                class="text-sm font-medium text-gray-600 hover:text-teal-600"
+            >
+                Browse Properties
+            </a>
+        </div>
+    </div>
+</nav>
+
+    <div class="max-w-7xl mx-auto px-4 pb-8" id="loading-state">
+        <p class="text-center text-gray-500">Loading property details...</p>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 pb-8 hidden" id="property-container">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <div class="lg:col-span-2 space-y-6">
+
+                <!-- Property Image Gallery -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                    <div class="relative h-[420px] bg-black flex items-center justify-center group">
+                        <img
+                            id="main-image"
+                            src=""
+                            alt="Property image"
+                            class="object-contain h-full w-full transition duration-300"
+                        >
+
+                        <button
+                            id="gallery-prev-btn"
+                            type="button"
+                            class="hidden absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 w-11 h-11 rounded-full shadow flex items-center justify-center transition"
+                            aria-label="Previous image"
+                        >
+                            &#10094;
+                        </button>
+
+                        <button
+                            id="gallery-next-btn"
+                            type="button"
+                            class="hidden absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-900 w-11 h-11 rounded-full shadow flex items-center justify-center transition"
+                            aria-label="Next image"
+                        >
+                            &#10095;
+                        </button>
+
+                        <div
+                            id="gallery-counter"
+                            class="hidden absolute bottom-4 right-4 bg-black/70 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
+                        >
+                            1 / 1
+                        </div>
+                    </div>
+
+                    <div
+                        id="thumbnail-row"
+                        class="hidden bg-white border-t border-gray-100 p-3 overflow-x-auto flex gap-3"
+                    ></div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                        <div>
+                            <h1 id="prop-title" class="text-2xl font-bold text-gray-900">Loading...</h1>
+                            <p id="prop-location" class="text-gray-500 mt-1">📍 Loading...</p>
+                        </div>
+
+                        <div class="md:text-right">
+                            <div id="prop-price" class="text-3xl font-extrabold text-teal-600">GH₵ 0</div>
+                            <span id="prop-negotiable" class="hidden mt-1 text-xs bg-amber-50 text-amber-700 font-medium px-2 py-1 rounded border border-amber-200">
+                                Negotiable
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold mb-4">Property Specifications</h2>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-xs text-gray-400 block">Property Type</span>
+                            <span id="spec-type" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Bedrooms</span>
+                            <span id="spec-beds" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Bathrooms</span>
+                            <span id="spec-baths" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Condition</span>
+                            <span id="spec-condition" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Furnishing</span>
+                            <span id="spec-furnishing" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Electricity Meter</span>
+                            <span id="spec-meter-type" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Indoor Bathroom</span>
+                            <span id="spec-indoor-bathroom" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Toilet/WC</span>
+                            <span id="spec-toilet-wc" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Indoor Kitchen</span>
+                            <span id="spec-indoor-kitchen" class="font-semibold">-</span>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-gray-400 block">Availability Status</span>
+                            <span id="spec-status" class="font-semibold text-teal-600">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold mb-3">Property Description</h2>
+                    <p id="prop-desc" class="text-gray-600 text-sm whitespace-pre-line">Loading...</p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
+                    <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span id="agent-initial" class="text-xl font-bold text-teal-700">L</span>
+                    </div>
+
+                    <h3 id="agent-name" class="font-bold text-gray-900">Loading Landlord...</h3>
+                    <p class="text-xs text-gray-400 mb-4">Property Owner</p>
+
+                    <button id="btn-show-contact" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-xl transition">
+                        Show Contact Number
+                    </button>
+                </div>
+
+                <div id="negotiation-card" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold text-gray-900 mb-2">Send an Offer</h2>
+                    <p class="text-sm text-gray-500 mb-5">
+                        Submit your preferred rent amount and message directly to the landlord. The landlord can review your offer and respond from the landlord dashboard.
+                    </p>
+
+                    <form id="negotiation-form" class="space-y-4">
+                        <div>
+                            <label for="offer-amount" class="block text-sm font-semibold text-gray-700 mb-1">
+                                Offer Amount (GHS)
+                            </label>
+
+                            <input
+                                type="number"
+                                id="offer-amount"
+                                min="1"
+                                step="0.01"
+                                class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="Enter your offer amount"
+                                required
+                            >
+                        </div>
+
+                        <div>
+                            <label for="offer-message" class="block text-sm font-semibold text-gray-700 mb-1">
+                                Message to Landlord
+                            </label>
+
+                            <textarea
+                                id="offer-message"
+                                rows="4"
+                                maxlength="1000"
+                                class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="Briefly introduce yourself and explain your interest in this property..."
+                                required
+                            ></textarea>
+
+                            <p class="text-xs text-gray-400 mt-1">Maximum 1000 characters.</p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            id="submit-offer-btn"
+                            class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl transition"
+                        >
+                            Send Offer
+                        </button>
+                    </form>
+
+                    <div id="negotiation-status" class="hidden mt-4 text-sm rounded-xl px-4 py-3"></div>
+
+                    <a
+                        id="go-to-negotiations"
+                        href="tenant-dashboard.html"
+                        class="hidden mt-4 block text-center text-sm font-semibold text-teal-700 hover:text-teal-900"
+                    >
+                        View My Negotiations
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/property-details.js"></script>
+</body>
+</html>

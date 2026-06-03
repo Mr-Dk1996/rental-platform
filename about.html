@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us | RentHaven Ghana</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            background: #f8fafc;
+            color: #0f172a;
+        }
+
+        .public-page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 22px 70px;
+        }
+
+        .public-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .public-logo {
+            font-size: 1.25rem;
+            color: #0f172a;
+        }
+
+        .public-logo strong {
+            color: #0d8abc;
+        }
+
+        .public-nav {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .public-nav a {
+            color: #334155;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+        }
+
+        .public-nav a:hover {
+            color: #0d8abc;
+        }
+
+        .public-hero {
+            background: linear-gradient(135deg, #0d8abc, #075985);
+            color: #ffffff;
+            border-radius: 22px;
+            padding: 46px 34px;
+            margin-bottom: 30px;
+        }
+
+        .public-hero h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            margin: 0 0 12px;
+            line-height: 1.1;
+        }
+
+        .public-hero p {
+            max-width: 760px;
+            line-height: 1.7;
+            font-size: 1rem;
+            opacity: 0.95;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-top: 24px;
+        }
+
+        .info-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+
+        .info-card i {
+            font-size: 2rem;
+            color: #0d8abc;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .info-card h3 {
+            margin: 0 0 8px;
+            color: #0f172a;
+        }
+
+        .info-card p {
+            color: #475569;
+            line-height: 1.65;
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .section-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 28px;
+            margin-top: 22px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+
+        .section-card h2 {
+            margin-top: 0;
+            color: #0f172a;
+        }
+
+        .section-card p,
+        .section-card li {
+            color: #475569;
+            line-height: 1.7;
+        }
+
+        .cta-box {
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            border-radius: 18px;
+            padding: 26px;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .cta-box h2 {
+            margin-top: 0;
+        }
+
+        .cta-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .cta-actions a {
+            text-decoration: none;
+        }
+
+        @media (max-width: 700px) {
+            .public-header {
+                align-items: flex-start;
+                gap: 12px;
+                flex-direction: column;
+            }
+
+            .public-hero {
+                padding: 34px 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="public-header">
+        <div class="public-logo"><strong>RentHaven</strong> Ghana</div>
+
+        <nav class="public-nav">
+            <a href="index.html">Home</a>
+            <a href="about.html">About Us</a>
+            <a href="help.html">Help</a>
+            <a href="index.html">Log In / Sign Up</a>
+        </nav>
+    </header>
+
+    <main class="public-page">
+        <section class="public-hero">
+            <h1>About RentHaven Ghana</h1>
+            <p>
+                RentHaven Ghana is a smart rental platform designed to connect tenants directly with landlords.
+                The system helps users browse available spaces, save preferred rooms, send offers, negotiate,
+                communicate, and manage rental agreements in one secure digital environment.
+            </p>
+        </section>
+
+        <section class="info-grid">
+            <div class="info-card">
+                <i class="ph ph-house-line"></i>
+                <h3>Simple Property Search</h3>
+                <p>
+                    Tenants can browse rooms and apartments by location, type, price range, and availability.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <i class="ph ph-handshake"></i>
+                <h3>Direct Negotiation</h3>
+                <p>
+                    Tenants can send offers directly to landlords, while landlords can accept or reject offers.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <i class="ph ph-sparkle"></i>
+                <h3>Smart AI Match</h3>
+                <p>
+                    The platform recommends suitable properties using tenant preferences, saved spaces, and search activity.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <i class="ph ph-shield-check"></i>
+                <h3>Admin Monitoring</h3>
+                <p>
+                    The admin dashboard helps monitor users, properties, negotiations, active leases, and platform reports.
+                </p>
+            </div>
+        </section>
+
+        <section class="section-card">
+            <h2>Our Purpose</h2>
+            <p>
+                The purpose of RentHaven Ghana is to reduce the stress tenants face when searching for rooms
+                and to help landlords manage property listings more effectively. Instead of relying only on
+                phone calls, agents, and scattered advertisements, RentHaven Ghana provides a centralized
+                digital platform where rental activities can be managed more clearly.
+            </p>
+        </section>
+
+        <section class="section-card">
+            <h2>What the System Provides</h2>
+            <ul>
+                <li>Tenant and landlord account registration with role-based dashboards.</li>
+                <li>Property upload and management for landlords.</li>
+                <li>Browse, search, filter, and save spaces for tenants.</li>
+                <li>Offer submission and negotiation tracking.</li>
+                <li>Chat between tenants and landlords after negotiation.</li>
+                <li>Smart AI-assisted property matching.</li>
+                <li>Admin control for users, properties, leases, and reports.</li>
+            </ul>
+        </section>
+
+        <section class="section-card">
+            <h2>Why RentHaven Ghana Matters</h2>
+            <p>
+                Finding accommodation can be difficult when information is scattered, prices are unclear,
+                and communication between tenants and landlords is not properly organized. RentHaven Ghana
+                improves this process by making rental information easier to access, compare, manage, and monitor.
+            </p>
+        </section>
+
+        <section class="cta-box">
+            <h2>Ready to use RentHaven Ghana?</h2>
+            <p>
+                Go back to the homepage to log in or create an account as a tenant or landlord.
+            </p>
+
+            <div class="cta-actions">
+                <a href="index.html" class="btn-primary">Go to Homepage</a>
+                <a href="help.html" class="btn-outline">Need Help?</a>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

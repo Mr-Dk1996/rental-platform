@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Your Next Home | RentHaven Ghana</title>
+    
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
+    <style>
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #64748b;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .password-toggle-btn:hover {
+            color: #2b6cb0;
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 18px 0;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .google-auth-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .google-btn {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: inherit;
+        }
+
+        .google-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .google-btn i {
+            font-size: 1.2rem;
+            color: #db4437;
+        }
+
+        .top-nav {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .top-nav a {
+            color: #334155;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+            transition: color 0.2s ease;
+        }
+
+        .top-nav a:hover {
+            color: #0d8abc;
+        }
+
+        @media (max-width: 720px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .top-nav {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo"><strong>RentHaven</strong> Ghana</div>
+
+        <nav class="top-nav">
+            <a href="index.html">Home</a>
+            <a href="about.html">About Us</a>
+            <a href="help.html">Help</a>
+            <button onclick="openModal('login')" class="nav-login">Log In</button>
+            <button onclick="openModal('signup')" class="nav-signup">Sign Up</button>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Find a room you can truly call home.</h1>
+        <p>
+            RentHaven Ghana connects tenants directly with landlords, making it easier to browse available spaces,
+            submit offers, chat with property owners, and manage rental agreements in one place.
+        </p>
+    </section>
+
+    <div class="container">
+        <main class="listings">
+            <h2>Available spaces in Ghana</h2>
+
+            <div class="card-grid" id="properties-grid">
+                <div class="property-card skeleton-card">
+                    <div class="skeleton skeleton-image"></div>
+                    <div class="card-content">
+                        <div class="skeleton skeleton-text skeleton-type"></div>
+                        <div class="skeleton skeleton-text skeleton-title"></div>
+                    </div>
+                </div>
+
+                <div class="property-card skeleton-card">
+                    <div class="skeleton skeleton-image"></div>
+                    <div class="card-content">
+                        <div class="skeleton skeleton-text skeleton-type"></div>
+                        <div class="skeleton skeleton-text skeleton-title"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="auth-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+
+            <h2 id="modal-title">Welcome Back</h2>
+            
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        required
+                        placeholder="kwame@example.com"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+
+                    <div class="password-wrapper">
+                        <input
+                            type="password"
+                            id="password"
+                            required
+                            minlength="6"
+                            placeholder="Enter your password"
+                        >
+
+                        <button
+                            type="button"
+                            id="toggle-password"
+                            class="password-toggle-btn"
+                            aria-label="Toggle password visibility"
+                        >
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="confirm-password-group" style="display: none;">
+                    <label for="confirm-password">Confirm Password</label>
+
+                    <div class="password-wrapper">
+                        <input
+                            type="password"
+                            id="confirm-password"
+                            placeholder="Re-enter your password"
+                            minlength="6"
+                        >
+
+                        <button
+                            type="button"
+                            id="toggle-confirm-password"
+                            class="password-toggle-btn"
+                            aria-label="Toggle confirm password visibility"
+                        >
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="signup-fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="full-name">Full Name</label>
+                        <input
+                            type="text"
+                            id="full-name"
+                            placeholder="Kwame Mensah"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-role">Account Type</label>
+                        <select id="user-role">
+                            <option value="Tenant">Tenant looking for a place</option>
+                            <option value="Landlord">Landlord listing properties</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="security-question">Security Question</label>
+                        <select id="security-question">
+                            <option value="pet">What was the name of your first pet?</option>
+                            <option value="city">In what city were you born?</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="security-answer">Security Answer</label>
+                        <input
+                            type="text"
+                            id="security-answer"
+                            placeholder="Enter your answer"
+                        >
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="submit-auth-btn">
+                    Log In
+                </button>
+            </form>
+
+            <div class="auth-divider">or</div>
+
+            <div id="google-login-options" class="google-auth-options">
+                <button type="button" class="google-btn" id="google-login-btn">
+                    <i class="ph ph-google-logo"></i>
+                    Continue with Google
+                </button>
+            </div>
+
+            <div id="google-signup-options" class="google-auth-options" style="display: none;">
+                <button type="button" class="google-btn" id="google-tenant-btn">
+                    <i class="ph ph-google-logo"></i>
+                    Continue with Google as Tenant
+                </button>
+
+                <button type="button" class="google-btn" id="google-landlord-btn">
+                    <i class="ph ph-google-logo"></i>
+                    Continue with Google as Landlord
+                </button>
+            </div>
+
+            <p
+                id="auth-error"
+                style="color: #e53e3e; font-size: 0.85rem; margin-top: 12px; display: none; text-align: center;"
+            ></p>
+        </div>
+    </div>
+
+    <div id="custom-dialog" class="modal-overlay" style="display: none; z-index: 10000;">
+        <div class="modal-content" style="max-width: 320px; text-align: center;">
+            <h3 id="dialog-title" style="margin-bottom: 10px;">Notification</h3>
+            <p id="dialog-message" style="margin-bottom: 20px; color: #4a5568;"></p>
+            <button onclick="closeCustomDialog()" class="btn-primary" style="width: 100%;">
+                Continue
+            </button>
+        </div>
+    </div>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/properties.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            function bindPasswordToggle(buttonId, inputId) {
+                const toggleBtn = document.getElementById(buttonId);
+                const passwordInput = document.getElementById(inputId);
+
+                if (!toggleBtn || !passwordInput) return;
+
+                toggleBtn.addEventListener('click', () => {
+                    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+
+                    passwordInput.setAttribute('type', type);
+
+                    toggleBtn.innerHTML = type === 'text'
+                        ? '<i class="ph ph-eye-slash"></i>'
+                        : '<i class="ph ph-eye"></i>';
+                });
+            }
+
+            bindPasswordToggle('toggle-password', 'password');
+            bindPasswordToggle('toggle-confirm-password', 'confirm-password');
+        });
+    </script>
+</body>
+</html>

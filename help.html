@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help & Support | RentHaven Ghana</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            background: #f8fafc;
+            color: #0f172a;
+        }
+
+        .public-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .public-logo {
+            font-size: 1.25rem;
+            color: #0f172a;
+        }
+
+        .public-logo strong {
+            color: #0d8abc;
+        }
+
+        .public-nav {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .public-nav a {
+            color: #334155;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+        }
+
+        .public-nav a:hover {
+            color: #0d8abc;
+        }
+
+        .help-page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 22px 70px;
+        }
+
+        .help-hero {
+            background: linear-gradient(135deg, #0d8abc, #075985);
+            color: #ffffff;
+            border-radius: 22px;
+            padding: 46px 34px;
+            margin-bottom: 28px;
+        }
+
+        .help-hero h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            margin: 0 0 12px;
+        }
+
+        .help-hero p {
+            max-width: 760px;
+            line-height: 1.7;
+            opacity: 0.95;
+        }
+
+        .help-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+
+        .help-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+
+        .help-card i {
+            font-size: 2rem;
+            color: #0d8abc;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .help-card h3 {
+            margin: 0 0 10px;
+            color: #0f172a;
+        }
+
+        .help-card p,
+        .help-card li {
+            color: #475569;
+            line-height: 1.65;
+            font-size: 0.95rem;
+        }
+
+        .help-card ul {
+            padding-left: 18px;
+            margin-bottom: 0;
+        }
+
+        .faq-section {
+            margin-top: 24px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 28px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+
+        .faq-section h2 {
+            margin-top: 0;
+        }
+
+        .faq-item {
+            border-top: 1px solid #e2e8f0;
+            padding: 18px 0;
+        }
+
+        .faq-item:first-of-type {
+            border-top: none;
+        }
+
+        .faq-item h3 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+        }
+
+        .faq-item p {
+            margin: 0;
+            color: #475569;
+            line-height: 1.7;
+        }
+
+        .support-box {
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            border-radius: 18px;
+            padding: 26px;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .support-box h2 {
+            margin-top: 0;
+        }
+
+        .support-box p {
+            color: #475569;
+            line-height: 1.7;
+        }
+
+        .support-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .support-actions a {
+            text-decoration: none;
+        }
+
+        @media (max-width: 700px) {
+            .public-header {
+                align-items: flex-start;
+                gap: 12px;
+                flex-direction: column;
+            }
+
+            .help-hero {
+                padding: 34px 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="public-header">
+        <div class="public-logo"><strong>RentHaven</strong> Ghana</div>
+
+        <nav class="public-nav">
+            <a href="index.html">Home</a>
+            <a href="about.html">About Us</a>
+            <a href="help.html">Help</a>
+            <a href="index.html">Log In / Sign Up</a>
+        </nav>
+    </header>
+
+    <main class="help-page">
+        <section class="help-hero">
+            <h1>Help & Support</h1>
+            <p>
+                This page guides tenants, landlords, and administrators on how to use RentHaven Ghana.
+                Use the sections below to understand how to create an account, browse properties,
+                upload listings, negotiate, and manage your account.
+            </p>
+        </section>
+
+        <section class="help-grid">
+            <div class="help-card">
+                <i class="ph ph-user-circle-plus"></i>
+                <h3>Creating an Account</h3>
+                <ul>
+                    <li>Click Sign Up on the homepage.</li>
+                    <li>Choose Tenant or Landlord.</li>
+                    <li>Enter your name, email, password, and security answer.</li>
+                    <li>You can also continue with Google as Tenant or Landlord.</li>
+                </ul>
+            </div>
+
+            <div class="help-card">
+                <i class="ph ph-house-line"></i>
+                <h3>For Tenants</h3>
+                <ul>
+                    <li>Browse available rooms and apartments.</li>
+                    <li>Use search and filters to narrow results.</li>
+                    <li>Save spaces you like for later.</li>
+                    <li>Open property details and send an offer.</li>
+                    <li>Use Smart AI Match for recommendations.</li>
+                </ul>
+            </div>
+
+            <div class="help-card">
+                <i class="ph ph-buildings"></i>
+                <h3>For Landlords</h3>
+                <ul>
+                    <li>Add property details and upload images.</li>
+                    <li>Manage your listed properties.</li>
+                    <li>Receive tenant offers.</li>
+                    <li>Accept or reject negotiations.</li>
+                    <li>Track active leases after accepting an offer.</li>
+                </ul>
+            </div>
+
+            <div class="help-card">
+                <i class="ph ph-shield-check"></i>
+                <h3>For Admin</h3>
+                <ul>
+                    <li>Monitor total users and platform activity.</li>
+                    <li>View and filter users.</li>
+                    <li>View and moderate property listings.</li>
+                    <li>Monitor negotiations and active leases.</li>
+                    <li>Generate printable system reports.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <h3>Can a tenant save properties?</h3>
+                <p>
+                    Yes. Tenants can save properties using the heart/save button. Saved spaces can be viewed later
+                    from the Saved Spaces section.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Can a landlord upload more than one property?</h3>
+                <p>
+                    Yes. A landlord can add and manage multiple properties from the landlord dashboard.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3>What happens when a landlord accepts an offer?</h3>
+                <p>
+                    The property status changes to Occupied, and the accepted negotiation becomes an active lease record.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Can users update their profile?</h3>
+                <p>
+                    Yes. Users can update profile information such as full name, phone numbers, email request,
+                    and password from their account settings.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3>What does Smart AI Match do?</h3>
+                <p>
+                    Smart AI Match helps tenants find suitable properties by scoring available listings using preferences,
+                    saved spaces, negotiation history, location, budget, and property type.
+                </p>
+            </div>
+        </section>
+
+        <section class="support-box">
+            <h2>Still need help?</h2>
+            <p>
+                Go back to the homepage and log in to your account. You can update your profile,
+                check notifications, and continue using the dashboard features.
+            </p>
+
+            <div class="support-actions">
+                <a href="index.html" class="btn-primary">Go to Homepage</a>
+                <a href="about.html" class="btn-outline">About RentHaven</a>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

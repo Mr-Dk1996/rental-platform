@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Dashboard | RentHaven Ghana</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+
+        <aside class="sidebar" style="justify-content: flex-start;">
+            <div class="sidebar-header">
+                <h2>RentHaven</h2>
+                <span class="status-badge status-accepted" style="font-size: 0.75rem; margin-top: 4px;">
+                    Landlord Portal
+                </span>
+            </div>
+
+            <nav class="sidebar-nav" style="margin-top: 28px;">
+                <a href="#" class="nav-item active" data-target="overview">
+                    <i class="ph ph-chart-line"></i> Overview
+                </a>
+
+                <a href="#" class="nav-item" data-target="listings">
+                    <i class="ph ph-buildings"></i> My Listings
+                </a>
+
+                <a href="#" class="nav-item" data-target="offers">
+                    <i class="ph ph-handshake"></i> Incoming Offers
+                </a>
+
+                <a href="#" class="nav-item" data-target="leases">
+                    <i class="ph ph-file-text"></i> Active Leases
+                </a>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+
+            <header class="dashboard-topbar">
+                <div class="search-bar" style="visibility: hidden;">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+
+                <div class="topbar-actions" style="position: relative;">
+                    <button
+                        class="icon-btn"
+                        id="landlord-notification-btn"
+                        aria-label="Notifications"
+                        style="position: relative;"
+                    >
+                        <i class="ph ph-bell"></i>
+                        <span
+                            id="landlord-notification-count"
+                            style="display: none; position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 0.7rem; font-weight: 700; align-items: center; justify-content: center;"
+                        >0</span>
+                    </button>
+
+                    <div
+                        id="landlord-notification-panel"
+                        style="display: none; position: absolute; top: 52px; right: 56px; width: 360px; max-width: calc(100vw - 32px); background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12); z-index: 1000; overflow: hidden;"
+                    >
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #e2e8f0;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">Notifications</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b;">Latest offer and system updates</p>
+                            </div>
+
+                            <button
+                                id="landlord-mark-notifications-read"
+                                class="btn-outline"
+                                style="font-size: 0.75rem; padding: 6px 10px;"
+                            >
+                                Mark all read
+                            </button>
+                        </div>
+
+                        <div
+                            id="landlord-notification-list"
+                            style="max-height: 360px; overflow-y: auto;"
+                        >
+                            <div style="padding: 22px; text-align: center; color: #64748b;">
+                                Loading notifications...
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        id="profile-menu-btn"
+                        type="button"
+                        class="user-avatar"
+                        aria-label="Open profile menu"
+                        style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: none; background: transparent; padding: 0; cursor: pointer;"
+                    >
+                        <img
+                            id="topbar-avatar"
+                            src="https://ui-avatars.com/api/?name=Landlord+User&background=0D8ABC&color=fff"
+                            alt="User Avatar"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                        >
+                    </button>
+
+                    <div
+                        id="profile-menu-panel"
+                        style="display: none; position: absolute; top: 52px; right: 0; width: 230px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12); z-index: 1000; overflow: hidden;"
+                    >
+                        <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0;">
+                            <h4 id="profile-menu-name" style="margin: 0; font-size: 0.95rem; color: #0f172a; font-weight: 700;">
+                                Landlord Account
+                            </h4>
+                            <p id="profile-menu-role" style="margin: 3px 0 0 0; font-size: 0.78rem; color: #64748b;">
+                                Landlord
+                            </p>
+                        </div>
+
+                        <button
+                            id="profile-menu-view-profile"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-user-circle"></i> View Profile
+                        </button>
+
+                        <button
+                            id="profile-menu-account-settings"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-gear-six"></i> Account Settings
+                        </button>
+
+                        <button
+                            id="profile-menu-logout"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #dc2626; font-weight: 600; border-top: 1px solid #e2e8f0;"
+                        >
+                            <i class="ph ph-sign-out"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+
+                <section id="overview" class="view-section active-view">
+                    <div class="view-header">
+                        <div>
+                            <h1 id="welcome-message">Welcome Back</h1>
+                            <p class="text-muted">Monitor your property listings, offers, and active leases.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 32px; gap: 20px;">
+
+                        <div class="property-card" style="padding: 24px; display: flex; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="background: #eff6ff; color: #1d4ed8; padding: 16px; border-radius: 12px; font-size: 2rem; display: flex; align-items: center; justify-content: center;">
+                                <i class="ph ph-buildings"></i>
+                            </div>
+
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.75rem; font-weight: 700;" id="stat-total-properties">0</h3>
+                                <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.9rem;">Total Properties</p>
+                            </div>
+                        </div>
+
+                        <div class="property-card" style="padding: 24px; display: flex; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="background: #fef3c7; color: #d97706; padding: 16px; border-radius: 12px; font-size: 2rem; display: flex; align-items: center; justify-content: center;">
+                                <i class="ph ph-clock-counter-clockwise"></i>
+                            </div>
+
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.75rem; font-weight: 700;" id="stat-pending-offers">0</h3>
+                                <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.9rem;">Pending Offers</p>
+                            </div>
+                        </div>
+
+                        <div class="property-card" style="padding: 24px; display: flex; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="background: #ecfdf5; color: #059669; padding: 16px; border-radius: 12px; font-size: 2rem; display: flex; align-items: center; justify-content: center;">
+                                <i class="ph ph-wallet"></i>
+                            </div>
+
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.75rem; font-weight: 700;" id="stat-active-leases">0</h3>
+                                <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.9rem;">Occupied Spaces</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <section id="listings" class="view-section">
+                    <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div>
+                            <h1>My Properties</h1>
+                            <p class="text-muted">Add, edit, activate, deactivate, and manage your rental listings.</p>
+                        </div>
+
+                        <button class="btn-primary" id="open-add-property-modal">
+                            <i class="ph ph-plus"></i> Add Property
+                        </button>
+                    </div>
+
+                    <div class="card-grid" id="landlord-properties-grid" style="gap: 24px;"></div>
+                </section>
+
+                <section id="offers" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Incoming Offers</h1>
+                            <p class="text-muted">Review tenant offers and continue negotiations.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="incoming-offers-list"></div>
+                </section>
+
+                <section id="leases" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Active Leases</h1>
+                            <p class="text-muted">Track finalized tenancy agreements and occupied properties.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="active-leases-list"></div>
+                </section>
+
+                <section id="profile" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Account Profile</h1>
+                            <p class="text-muted">View and update your RentHaven Ghana account details.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="max-width: 760px;">
+
+                        <div class="profile-header-card" style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <img
+                                id="profile-avatar-display"
+                                src="https://ui-avatars.com/api/?name=Landlord&background=0D8ABC&color=fff&size=80"
+                                alt="Avatar"
+                                style="border-radius: 50%; width: 80px; height: 80px; object-fit: cover;"
+                            >
+
+                            <div>
+                                <h2 id="profile-display-name" style="margin: 0 0 6px 0; font-size: 1.35rem; font-weight: 600;">
+                                    Loading Profile...
+                                </h2>
+                                <span class="status-badge status-accepted">Landlord Account</span>
+                            </div>
+                        </div>
+
+                        <div
+                            id="account-settings-card"
+                            class="settings-card"
+                            style="background:#fff; padding:24px; border-radius:12px; border:1px solid #e2e8f0; margin-top:24px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);"
+                        >
+                            <h3 style="margin-top: 0; margin-bottom: 20px; font-weight: 600;">Account Settings</h3>
+
+                            <form id="landlord-profile-form">
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label for="profile-name" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                        Full Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="profile-name"
+                                        style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom:16px;">
+                                    <div>
+                                        <label for="profile-phone" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                            Primary Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            id="profile-phone"
+                                            placeholder="e.g., 0240000000"
+                                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        >
+                                    </div>
+
+                                    <div>
+                                        <label for="profile-phone-alt" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                            Alternative Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            id="profile-phone-alt"
+                                            placeholder="Optional second number"
+                                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        >
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn-primary" id="save-profile-btn" style="width: auto; padding: 10px 20px;">
+                                    Save Profile
+                                </button>
+                            </form>
+                        </div>
+
+                        <div
+                            id="email-settings-card"
+                            class="settings-card"
+                            style="background:#fff; padding:24px; border-radius:12px; border:1px solid #e2e8f0; margin-top:24px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);"
+                        >
+                            <h3 style="margin-top: 0; margin-bottom: 12px; font-weight: 600;">Email / Gmail Settings</h3>
+                            <p class="text-muted" style="font-size:0.88rem; margin-bottom: 18px;">
+                                You can request an email change. Supabase may ask you to confirm the new email from your inbox before the change is completed.
+                            </p>
+
+                            <div class="form-group" style="margin-bottom:16px;">
+                                <label for="profile-current-email" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                    Current Email
+                                </label>
+                                <input
+                                    type="email"
+                                    id="profile-current-email"
+                                    disabled
+                                    style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; background:#f1f5f9;"
+                                >
+                            </div>
+
+                            <div class="form-group" style="margin-bottom:16px;">
+                                <label for="profile-new-email" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                    New Email
+                                </label>
+                                <input
+                                    type="email"
+                                    id="profile-new-email"
+                                    placeholder="Enter new Gmail/email address"
+                                    style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                >
+                            </div>
+
+                            <button type="button" class="btn-outline" id="update-email-btn" style="width: auto; padding: 10px 20px;">
+                                Update Email
+                            </button>
+                        </div>
+
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Property Modal -->
+    <div
+        id="add-property-modal"
+        class="modal-overlay"
+        style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 16px;"
+    >
+        <div class="chat-modal-content" style="max-width: 680px; width: 100%; height: auto; max-height: 90vh; overflow-y: auto; background: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);">
+
+            <div class="chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                <h3 id="property-modal-title" style="margin: 0; font-weight: 600; font-size: 1.2rem;">List New Rental Property</h3>
+
+                <button class="icon-btn" id="close-property-modal-btn" aria-label="Close Modal">
+                    <i class="ph ph-x" style="font-size: 1.25rem;"></i>
+                </button>
+            </div>
+
+            <form id="add-property-form" data-mode="add" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <input type="hidden" id="prop-edit-id">
+
+                <div class="form-group">
+                    <label for="prop-title" style="font-weight: 500; display:block; margin-bottom:6px;">Property Title</label>
+                    <input
+                        type="text"
+                        id="prop-title"
+                        placeholder="e.g., Executive 2 Bedroom Apartment"
+                        style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="prop-location" style="font-weight: 500; display:block; margin-bottom:6px;">Location</label>
+                    <input
+                        type="text"
+                        id="prop-location"
+                        placeholder="e.g., East Legon, Accra"
+                        style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="prop-description" style="font-weight: 500; display:block; margin-bottom:6px;">Property Description</label>
+                    <textarea
+                        id="prop-description"
+                        rows="3"
+                        placeholder="Describe the room, environment, nearby facilities, rules, or special features..."
+                        style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; resize: vertical;"
+                    ></textarea>
+                    <small class="text-muted" style="display:block; margin-top:4px; font-size:0.8rem;">
+                        Optional, but recommended for better tenant understanding.
+                    </small>
+                </div>
+
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label for="prop-price" style="font-weight: 500; display:block; margin-bottom:6px;">Price per Month (GHS)</label>
+                        <input
+                            type="number"
+                            id="prop-price"
+                            placeholder="2500"
+                            min="1"
+                            step="0.01"
+                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                            required
+                        >
+                    </div>
+
+                    <div>
+                        <label for="prop-type" style="font-weight: 500; display:block; margin-bottom:6px;">Property Type</label>
+                        <select
+                            id="prop-type"
+                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; background-color: #fff;"
+                        >
+                            <option value="Single Room">Single Room</option>
+                            <option value="Chamber & Hall">Chamber & Hall</option>
+                            <option value="Studio Apartment">Studio Apartment</option>
+                            <option value="2 Bedroom">2 Bedroom</option>
+                            <option value="Apartment">Apartment</option>
+                            <option value="Full House">Full House</option>
+                            <option value="Townhouse">Townhouse</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label for="prop-beds" style="font-weight: 500; display:block; margin-bottom:6px;">Bedrooms</label>
+                        <input
+                            type="number"
+                            id="prop-beds"
+                            value="1"
+                            min="0"
+                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                        >
+                    </div>
+
+                    <div>
+                        <label for="prop-baths" style="font-weight: 500; display:block; margin-bottom:6px;">Bathrooms</label>
+                        <input
+                            type="number"
+                            id="prop-baths"
+                            value="1"
+                            min="0"
+                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                        >
+                    </div>
+                </div>
+
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #f8fafc;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 1rem; color: #1e293b;">Extra Property Details</h4>
+
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                        <div>
+                            <label for="prop-condition" style="font-weight: 500; display:block; margin-bottom:6px;">Condition</label>
+                            <select
+                                id="prop-condition"
+                                style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; background-color: #fff;"
+                            >
+                                <option value="">Not specified</option>
+                                <option value="Newly Built">Newly Built</option>
+                                <option value="Renovated">Renovated</option>
+                                <option value="Good Condition">Good Condition</option>
+                                <option value="Needs Minor Repairs">Needs Minor Repairs</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="prop-furnishing" style="font-weight: 500; display:block; margin-bottom:6px;">Furnishing</label>
+                            <select
+                                id="prop-furnishing"
+                                style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; background-color: #fff;"
+                            >
+                                <option value="">Not specified</option>
+                                <option value="Unfurnished">Unfurnished</option>
+                                <option value="Semi-Furnished">Semi-Furnished</option>
+                                <option value="Fully Furnished">Fully Furnished</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="prop-meter-type" style="font-weight: 500; display:block; margin-bottom:6px;">Electricity Meter Type</label>
+                        <select
+                            id="prop-meter-type"
+                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit; background-color: #fff;"
+                        >
+                            <option value="">Not specified</option>
+                            <option value="Prepaid Meter">Prepaid Meter</option>
+                            <option value="Postpaid Meter">Postpaid Meter</option>
+                            <option value="Shared Meter">Shared Meter</option>
+                            <option value="Included in Rent">Included in Rent</option>
+                        </select>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:#334155;">
+                            <input type="checkbox" id="prop-indoor-bathroom">
+                            Indoor Bathroom
+                        </label>
+
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:#334155;">
+                            <input type="checkbox" id="prop-toilet-wc">
+                            Toilet/WC
+                        </label>
+
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:#334155;">
+                            <input type="checkbox" id="prop-indoor-kitchen">
+                            Indoor Kitchen
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label id="prop-image-label" for="prop-image-file" style="font-weight: 500; display:block; margin-bottom:6px;">
+                        Upload Property Photos
+                    </label>
+
+                    <input
+                        type="file"
+                        id="prop-image-file"
+                        accept="image/*"
+                        multiple
+                        style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                    >
+
+                    <small id="prop-image-help" class="text-muted" style="display: block; margin-top: 4px; font-size: 0.8rem;">
+                        PNG, JPG, or JPEG formats supported. You can select more than one image. At least one image is required when adding a new property.
+                    </small>
+                </div>
+
+                <button id="property-submit-btn" type="submit" class="btn-primary" style="padding:12px; margin-top:8px; font-weight: 500;">
+                    Save Property
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div
+        id="chat-modal"
+        class="modal-overlay"
+        style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 999; align-items: center; justify-content: center; padding: 16px;"
+    >
+        <div class="chat-modal-content" style="max-width: 600px; width: 100%; background: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); display: flex; flex-direction: column; height: 80vh; max-height: 700px;">
+
+            <div class="chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                <div>
+                    <h3 id="chat-property-title" style="margin: 0; font-weight: 600; font-size: 1.15rem;">
+                        Conversation
+                    </h3>
+                    <p class="text-muted" id="chat-tenant-name" style="font-size: 0.85rem; margin: 2px 0 0 0;">
+                        Tenant Profile
+                    </p>
+                </div>
+
+                <button class="icon-btn" id="close-chat-btn" aria-label="Close Chat">
+                    <i class="ph ph-x" style="font-size: 1.25rem;"></i>
+                </button>
+            </div>
+
+            <div
+                class="chat-messages"
+                id="chat-messages-container"
+                style="flex: 1; overflow-y: auto; padding: 20px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px;"
+            ></div>
+
+            <form
+                class="chat-input-area"
+                id="chat-form"
+                style="display: flex; gap: 10px; padding: 16px 20px; border-top: 1px solid #e2e8f0; background: #fff; align-items: center;"
+            >
+                <input
+                    type="text"
+                    id="chat-message-input"
+                    placeholder="Type your message..."
+                    style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem;"
+                    required
+                    autocomplete="off"
+                >
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="send-msg-btn"
+                    aria-label="Send Message"
+                    style="width: 44px; height: 44px; border-radius: 8px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
+                >
+                    <i class="ph ph-paper-plane-right" style="font-size: 1.2rem;"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/landlord.js"></script>
+</body>
+</html>

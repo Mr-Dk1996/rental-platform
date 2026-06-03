@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Dashboard | RentHaven Ghana</title>
+    
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+        
+        <aside class="sidebar" style="justify-content: flex-start;">
+            <div class="sidebar-header">
+                <h2>RentHaven</h2>
+            </div>
+            
+            <nav class="sidebar-nav" style="margin-top: 28px;">
+                <a href="#" class="nav-item active" data-target="browse">
+                    <i class="ph ph-house"></i> Browse Rooms
+                </a>
+
+                <a href="#" class="nav-item" data-target="recommendations">
+                    <i class="ph ph-sparkle"></i> Smart AI Match
+                </a>
+
+                <a href="#" class="nav-item" data-target="saved">
+                    <i class="ph ph-heart"></i> Saved Spaces
+                </a>
+
+                <a href="#" class="nav-item" data-target="negotiations">
+                    <i class="ph ph-chats"></i> Negotiations
+                </a>
+
+                <a href="#" class="nav-item" data-target="lease">
+                    <i class="ph ph-file-text"></i> My Lease
+                </a>
+
+                <a href="#" class="nav-item" data-target="payments">
+                    <i class="ph ph-credit-card"></i> Payments
+                </a>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+            
+            <header class="dashboard-topbar">
+                <div class="search-bar">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Search by location (e.g., East Legon, Osu)...">
+                </div>
+                
+                <div class="topbar-actions" style="position: relative;">
+                    <button
+                        class="icon-btn"
+                        id="tenant-notification-btn"
+                        aria-label="Notifications"
+                        style="position: relative;"
+                    >
+                        <i class="ph ph-bell"></i>
+                        <span
+                            id="tenant-notification-count"
+                            style="display: none; position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 0.7rem; font-weight: 700; align-items: center; justify-content: center;"
+                        >0</span>
+                    </button>
+
+                    <div
+                        id="tenant-notification-panel"
+                        style="display: none; position: absolute; top: 52px; right: 56px; width: 360px; max-width: calc(100vw - 32px); background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12); z-index: 1000; overflow: hidden;"
+                    >
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #e2e8f0;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">Notifications</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b;">Latest offer, lease, and system updates</p>
+                            </div>
+
+                            <button
+                                id="tenant-mark-notifications-read"
+                                class="btn-outline"
+                                style="font-size: 0.75rem; padding: 6px 10px;"
+                            >
+                                Mark all read
+                            </button>
+                        </div>
+
+                        <div
+                            id="tenant-notification-list"
+                            style="max-height: 360px; overflow-y: auto;"
+                        >
+                            <div style="padding: 22px; text-align: center; color: #64748b;">
+                                Loading notifications...
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        id="profile-menu-btn"
+                        type="button"
+                        class="user-avatar"
+                        aria-label="Open profile menu"
+                        style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: none; background: transparent; padding: 0; cursor: pointer;"
+                    >
+                        <img
+                            id="topbar-avatar"
+                            src="https://ui-avatars.com/api/?name=Tenant+User&background=0D8ABC&color=fff"
+                            alt="User Avatar"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                        >
+                    </button>
+
+                    <div
+                        id="profile-menu-panel"
+                        style="display: none; position: absolute; top: 52px; right: 0; width: 230px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12); z-index: 1000; overflow: hidden;"
+                    >
+                        <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0;">
+                            <h4 id="profile-menu-name" style="margin: 0; font-size: 0.95rem; color: #0f172a; font-weight: 700;">
+                                Tenant Account
+                            </h4>
+                            <p id="profile-menu-role" style="margin: 3px 0 0 0; font-size: 0.78rem; color: #64748b;">
+                                Tenant
+                            </p>
+                        </div>
+
+                        <button
+                            id="profile-menu-view-profile"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-user-circle"></i> View Profile
+                        </button>
+
+                        <button
+                            id="profile-menu-account-settings"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-gear-six"></i> Account Settings
+                        </button>
+
+                        <button
+                            id="profile-menu-logout"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #dc2626; font-weight: 600; border-top: 1px solid #e2e8f0;"
+                        >
+                            <i class="ph ph-sign-out"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                
+                <section id="browse" class="view-section active-view">
+                    <div class="view-header">
+                        <div>
+                            <h1>Available Spaces</h1>
+                            <p class="text-muted">Find and negotiate your next home directly with landlords.</p>
+                        </div>
+                        
+                        <div class="filters-group">
+                            <select class="filter-select" id="filter-type">
+                                <option value="all">Any Property Type</option>
+                                <option value="Single Room">Single Room</option>
+                                <option value="Chamber & Hall">Chamber & Hall</option>
+                                <option value="Studio Apartment">Studio Apartment</option>
+                                <option value="2 Bedroom">2 Bedroom</option>
+                                <option value="Apartment">Apartment</option>
+                                <option value="Full House">Full House</option>
+                                <option value="Townhouse">Townhouse</option>
+                            </select>
+
+                            <select class="filter-select" id="filter-price">
+                                <option value="all">Any Price</option>
+                                <option value="low">Under GHS 1,000</option>
+                                <option value="mid">GHS 1,000 - 3,000</option>
+                                <option value="high">Above GHS 3,000</option>
+                            </select>
+
+                            <button class="btn-outline" id="more-filters-btn">
+                                <i class="ph ph-faders"></i> More Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-grid" id="properties-grid">
+                        <div class="property-card skeleton-card">
+                            <div class="skeleton skeleton-image"></div>
+                            <div class="card-content">
+                                <div class="skeleton skeleton-text"></div>
+                            </div>
+                        </div>
+
+                        <div class="property-card skeleton-card">
+                            <div class="skeleton skeleton-image"></div>
+                            <div class="card-content">
+                                <div class="skeleton skeleton-text"></div>
+                            </div>
+                        </div>
+
+                        <div class="property-card skeleton-card">
+                            <div class="skeleton skeleton-image"></div>
+                            <div class="card-content">
+                                <div class="skeleton skeleton-text"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 24px; display: none;" id="load-more-container">
+                        <button class="btn-outline" id="load-more-btn">Load More</button>
+                    </div>
+                </section>
+
+                <section id="recommendations" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Smart AI Match</h1>
+                            <p class="text-muted">
+                                Personalized room recommendations based on your saved spaces, budget, location interests, and negotiation activity.
+                            </p>
+                        </div>
+
+                        <button class="btn-outline" id="refresh-recommendations-btn">
+                            <i class="ph ph-arrows-clockwise"></i> Refresh Matches
+                        </button>
+                    </div>
+
+                    <div class="settings-card" style="margin-bottom: 24px;">
+                        <h3>Tell the system what you prefer</h3>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="ai-location">Preferred Location</label>
+                                <input type="text" id="ai-location" placeholder="e.g. East Legon, Osu, Madina">
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="ai-type">Property Type</label>
+                                <select id="ai-type">
+                                    <option value="all">Any Type</option>
+                                    <option value="Single Room">Single Room</option>
+                                    <option value="Chamber & Hall">Chamber & Hall</option>
+                                    <option value="Studio Apartment">Studio Apartment</option>
+                                    <option value="2 Bedroom">2 Bedroom</option>
+                                    <option value="Apartment">Apartment</option>
+                                    <option value="Full House">Full House</option>
+                                    <option value="Townhouse">Townhouse</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="ai-budget">Maximum Budget</label>
+                                <input type="number" id="ai-budget" placeholder="e.g. 1500" min="1">
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="ai-bedrooms">Bedrooms</label>
+                                <input type="number" id="ai-bedrooms" placeholder="e.g. 1" min="0">
+                            </div>
+                        </div>
+
+                        <button class="btn-primary" id="generate-ai-match-btn" style="margin-top: 18px;">
+                            <i class="ph ph-magic-wand"></i> Generate Smart Matches
+                        </button>
+                    </div>
+
+                    <div id="ai-summary-card" class="settings-card" style="display: none; margin-bottom: 24px;">
+                        <h3>AI Match Summary</h3>
+                        <p id="ai-summary-text" class="text-muted"></p>
+                    </div>
+
+                    <div class="card-grid" id="smart-recommendations-grid">
+                        <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: #64748b;">
+                            <i class="ph ph-sparkle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Enter your preferences and generate smart room matches.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="saved" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Saved Spaces</h1>
+                            <p class="text-muted">Properties you have bookmarked for later.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-grid" id="saved-properties-grid">
+                        <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: #64748b;">
+                            <i class="ph ph-spinner ph-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Loading your saved spaces...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="negotiations" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Negotiations</h1>
+                            <p class="text-muted">Manage your offers and chats with landlords.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="negotiations-list">
+                        <div style="text-align: center; padding: 40px; color: #64748b;">
+                            <i class="ph ph-spinner ph-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Loading your negotiations...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="lease" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>My Lease</h1>
+                            <p class="text-muted">Your accepted rental agreements and active tenancy records.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="tenant-leases-list">
+                        <div style="text-align: center; padding: 40px; color: #64748b;">
+                            <i class="ph ph-spinner ph-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Loading your active leases...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="payments" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Payments</h1>
+                            <p class="text-muted">Track your rent payments and download receipts.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="empty-state">
+                        <i class="ph ph-receipt"></i>
+                        <h3>No Payment History</h3>
+                        <p>Your payment records, upcoming due dates, and receipts will be tracked here once you sign a lease.</p>
+                    </div>
+                </section>
+
+                <section id="profile" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>My Profile</h1>
+                            <p class="text-muted">View and update your RentHaven Ghana account details.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-container" style="max-width: 760px;">
+                        
+                        <div class="profile-header-card" style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <img
+                                id="profile-avatar-display"
+                                src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff&size=80"
+                                alt="Avatar"
+                                style="border-radius: 50%; width: 80px; height: 80px; object-fit: cover;"
+                            >
+
+                            <div>
+                                <h2 id="profile-display-name" style="margin: 0 0 4px 0; font-size: 1.5rem; color: #1e293b;">
+                                    Loading...
+                                </h2>
+                                <span id="profile-display-role" class="status-badge status-accepted">Tenant</span>
+                            </div>
+                        </div>
+
+                        <div
+                            id="account-settings-card"
+                            class="settings-card"
+                            style="margin-top: 24px;"
+                        >
+                            <h3>Account Settings</h3>
+
+                            <form id="profile-form">
+                                <div class="form-group">
+                                    <label for="profile-name">Full Name</label>
+                                    <input type="text" id="profile-name" placeholder="Kwame Mensah" required>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                                    <div class="form-group">
+                                        <label for="profile-phone">Primary Phone</label>
+                                        <input type="tel" id="profile-phone" placeholder="e.g. 024 123 4567">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="profile-phone-alt">Alternative Phone</label>
+                                        <input type="tel" id="profile-phone-alt" placeholder="Optional second number">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn-primary" id="save-profile-btn">Save Profile</button>
+                            </form>
+                        </div>
+
+                        <div
+                            id="email-settings-card"
+                            class="settings-card"
+                            style="margin-top: 24px;"
+                        >
+                            <h3>Email / Gmail Settings</h3>
+                            <p class="text-muted" style="font-size:0.88rem; margin-bottom: 18px;">
+                                You can request an email change. Supabase may ask you to confirm the new email from your inbox before the change is completed.
+                            </p>
+
+                            <div class="form-group">
+                                <label for="profile-current-email">Current Email</label>
+                                <input type="email" id="profile-current-email" disabled>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="profile-new-email">New Email</label>
+                                <input type="email" id="profile-new-email" placeholder="Enter new Gmail/email address">
+                            </div>
+
+                            <button type="button" class="btn-outline" id="update-email-btn">
+                                Update Email
+                            </button>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 24px;">
+                            <h3>Security</h3>
+
+                           <form id="password-form">
+    <div class="form-group">
+        <label for="new-password">New Password</label>
+        <input
+            type="password"
+            id="new-password"
+            placeholder="Enter a new strong password"
+            required
+            minlength="6"
+        >
+    </div>
+
+    <div class="form-group">
+        <label for="confirm-new-password">Confirm New Password</label>
+        <input
+            type="password"
+            id="confirm-new-password"
+            placeholder="Re-enter the new password"
+            required
+            minlength="6"
+        >
+    </div>
+
+    <button type="submit" class="btn-outline" id="update-password-btn">Update Password</button>
+</form>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="chat-modal" class="modal-overlay" style="display: none;">
+        <div class="chat-modal-content">
+            <div class="chat-header">
+                <div>
+                    <h3 id="chat-property-title">Loading...</h3>
+                    <p class="text-muted" id="chat-landlord-name" style="font-size: 0.85rem;">Landlord</p>
+                </div>
+
+                <button class="icon-btn" id="close-chat-btn" aria-label="Close Chat">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages-container"></div>
+            
+            <form class="chat-input-area" id="chat-form">
+                <input type="text" id="chat-message-input" placeholder="Type your message..." required autocomplete="off">
+
+                <button type="submit" class="btn-primary" id="send-msg-btn">
+                    <i class="ph ph-paper-plane-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Printable Lease Agreement Area -->
+    <div id="print-lease-area" style="display: none;"></div>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/properties.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

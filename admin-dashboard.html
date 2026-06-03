@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | RentHaven Ghana</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .admin-report-document {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 32px;
+            color: #0f172a;
+        }
+
+        .report-header {
+            text-align: center;
+            border-bottom: 2px solid #0d8abc;
+            padding-bottom: 18px;
+            margin-bottom: 24px;
+        }
+
+        .report-header h2 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: #0d8abc;
+            font-weight: 800;
+        }
+
+        .report-header h3 {
+            margin: 6px 0;
+            font-size: 1.15rem;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .report-header p {
+            margin: 6px 0 0;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .report-section {
+            margin-bottom: 24px;
+        }
+
+        .report-section h3 {
+            font-size: 1rem;
+            color: #0f172a;
+            border-left: 4px solid #0d8abc;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+
+        .report-section p {
+            color: #475569;
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+
+        .report-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .report-stat-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            background: #f8fafc;
+        }
+
+        .report-stat-item span {
+            display: block;
+            color: #64748b;
+            font-size: 0.82rem;
+            margin-bottom: 6px;
+        }
+
+        .report-stat-item strong {
+            display: block;
+            font-size: 1.45rem;
+            color: #0d8abc;
+        }
+
+        .report-footer {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+            margin-top: 24px;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+
+        .report-footer p {
+            margin: 4px 0;
+        }
+
+        @media print {
+            body {
+                background: #ffffff !important;
+            }
+
+            .sidebar,
+            .dashboard-topbar,
+            .no-print {
+                display: none !important;
+            }
+
+            .dashboard-layout,
+            .dashboard-main,
+            .dashboard-content {
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
+
+            .view-section {
+                display: none !important;
+            }
+
+            #reports {
+                display: block !important;
+            }
+
+            .admin-report-document {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 24px !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                border-radius: 0 !important;
+            }
+
+            .report-header {
+                border-bottom: 2px solid #000000;
+            }
+
+            .report-header h2,
+            .report-stat-item strong {
+                color: #000000 !important;
+            }
+
+            .report-section h3 {
+                border-left: 4px solid #000000;
+            }
+
+            .report-stat-item {
+                background: #ffffff !important;
+                border: 1px solid #999999 !important;
+                break-inside: avoid;
+            }
+
+            .report-footer {
+                color: #000000 !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="dashboard-body">
+
+    <div class="dashboard-layout">
+
+        <aside class="sidebar" style="justify-content: flex-start;">
+            <div class="sidebar-header">
+                <h2>RentHaven</h2>
+                <span class="status-badge status-rejected" style="font-size: 0.75rem; margin-top: 4px;">
+                    Admin Portal
+                </span>
+            </div>
+
+            <nav class="sidebar-nav" style="margin-top: 28px;">
+                <a href="#" class="nav-item active" data-target="overview">
+                    <i class="ph ph-chart-bar"></i> Overview
+                </a>
+
+                <a href="#" class="nav-item" data-target="users">
+                    <i class="ph ph-users-three"></i> Users
+                </a>
+
+                <a href="#" class="nav-item" data-target="properties">
+                    <i class="ph ph-buildings"></i> Properties
+                </a>
+
+                <a href="#" class="nav-item" data-target="negotiations">
+                    <i class="ph ph-handshake"></i> Negotiations
+                </a>
+
+                <a href="#" class="nav-item" data-target="leases">
+                    <i class="ph ph-file-text"></i> Active Leases
+                </a>
+
+                <a href="#" class="nav-item" data-target="reports">
+                    <i class="ph ph-printer"></i> Reports
+                </a>
+
+                <a href="#" class="nav-item" data-target="profile">
+                    <i class="ph ph-user-circle"></i> Profile
+                </a>
+            </nav>
+        </aside>
+
+        <main class="dashboard-main">
+
+            <header class="dashboard-topbar">
+                <div class="search-bar" style="visibility: hidden;">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+
+                <div class="topbar-actions" style="position: relative;">
+                    <button
+                        id="admin-refresh-btn"
+                        class="btn-outline"
+                        type="button"
+                        style="padding: 9px 14px; font-size: 0.85rem;"
+                    >
+                        <i class="ph ph-arrows-clockwise"></i> Refresh
+                    </button>
+
+                    <button
+                        id="profile-menu-btn"
+                        type="button"
+                        class="user-avatar"
+                        aria-label="Open profile menu"
+                        style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: none; background: transparent; padding: 0; cursor: pointer;"
+                    >
+                        <img
+                            id="topbar-avatar"
+                            src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff"
+                            alt="Admin Avatar"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                        >
+                    </button>
+
+                    <div
+                        id="profile-menu-panel"
+                        style="display: none; position: absolute; top: 52px; right: 0; width: 230px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 20px 30px rgba(15, 23, 42, 0.12); z-index: 1000; overflow: hidden;"
+                    >
+                        <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0;">
+                            <h4 id="profile-menu-name" style="margin: 0; font-size: 0.95rem; color: #0f172a; font-weight: 700;">
+                                Admin Account
+                            </h4>
+                            <p id="profile-menu-role" style="margin: 3px 0 0 0; font-size: 0.78rem; color: #64748b;">
+                                Administrator
+                            </p>
+                        </div>
+
+                        <button
+                            id="profile-menu-view-profile"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-user-circle"></i> View Profile
+                        </button>
+
+                        <button
+                            id="profile-menu-account-settings"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #334155; font-weight: 500;"
+                        >
+                            <i class="ph ph-gear-six"></i> Account Settings
+                        </button>
+
+                        <button
+                            id="profile-menu-logout"
+                            type="button"
+                            style="width: 100%; border: none; background: #fff; padding: 12px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; color: #dc2626; font-weight: 600; border-top: 1px solid #e2e8f0;"
+                        >
+                            <i class="ph ph-sign-out"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+
+                <section id="overview" class="view-section active-view">
+                    <div class="view-header">
+                        <div>
+                            <h1 id="welcome-message">Admin Overview</h1>
+                            <p class="text-muted">Monitor platform users, listings, negotiations, and active leases.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px;">
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #2563eb;"><i class="ph ph-users-three"></i></div>
+                            <h3 id="stat-total-users" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Total Users</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #059669;"><i class="ph ph-user"></i></div>
+                            <h3 id="stat-tenants" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Tenants</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #7c3aed;"><i class="ph ph-house-line"></i></div>
+                            <h3 id="stat-landlords" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Landlords</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #d97706;"><i class="ph ph-buildings"></i></div>
+                            <h3 id="stat-total-properties" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Properties</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #16a34a;"><i class="ph ph-check-circle"></i></div>
+                            <h3 id="stat-available-properties" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Available Properties</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #dc2626;"><i class="ph ph-lock-key"></i></div>
+                            <h3 id="stat-occupied-properties" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Occupied Properties</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #ca8a04;"><i class="ph ph-clock"></i></div>
+                            <h3 id="stat-pending-negotiations" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Pending Offers</p>
+                        </div>
+
+                        <div class="property-card" style="padding: 22px;">
+                            <div style="font-size: 2rem; color: #0891b2;"><i class="ph ph-file-text"></i></div>
+                            <h3 id="stat-active-leases" style="font-size: 1.8rem; margin: 8px 0 0;">0</h3>
+                            <p class="text-muted">Active Leases</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="users" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>User Management</h1>
+                            <p class="text-muted">View platform users, roles, and account status.</p>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                        <input
+                            type="text"
+                            id="admin-user-search"
+                            placeholder="Search users by name, email, phone, or role..."
+                            style="flex:1; min-width:240px; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;"
+                        >
+
+                        <select
+                            id="admin-role-filter"
+                            style="padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; background:#fff;"
+                        >
+                            <option value="all">All Roles</option>
+                            <option value="Tenant">Tenants</option>
+                            <option value="Landlord">Landlords</option>
+                            <option value="Admin">Admins</option>
+                        </select>
+
+                        <select
+                            id="admin-status-filter"
+                            style="padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; background:#fff;"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Deactivated</option>
+                        </select>
+                    </div>
+
+                    <div class="list-container" id="admin-users-list">
+                        <p style="padding:20px; text-align:center; color:#64748b;">Loading users...</p>
+                    </div>
+                </section>
+
+                <section id="properties" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Property Management</h1>
+                            <p class="text-muted">View and moderate property listings from all landlords.</p>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                        <input
+                            type="text"
+                            id="admin-property-search"
+                            placeholder="Search properties by title, location, landlord, or type..."
+                            style="flex:1; min-width:240px; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;"
+                        >
+
+                        <select
+                            id="admin-property-status-filter"
+                            style="padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; background:#fff;"
+                        >
+                            <option value="all">All Property Status</option>
+                            <option value="Available">Available</option>
+                            <option value="Occupied">Occupied</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <div class="list-container" id="admin-properties-list">
+                        <p style="padding:20px; text-align:center; color:#64748b;">Loading properties...</p>
+                    </div>
+                </section>
+
+                <section id="negotiations" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Negotiation Monitoring</h1>
+                            <p class="text-muted">Monitor tenant offers and landlord responses.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="admin-negotiations-list">
+                        <p style="padding:20px; text-align:center; color:#64748b;">Loading negotiations...</p>
+                    </div>
+                </section>
+
+                <section id="leases" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Active Leases</h1>
+                            <p class="text-muted">Accepted rental agreements across the platform.</p>
+                        </div>
+                    </div>
+
+                    <div class="list-container" id="admin-leases-list">
+                        <p style="padding:20px; text-align:center; color:#64748b;">Loading active leases...</p>
+                    </div>
+                </section>
+
+                <section id="reports" class="view-section">
+                    <div class="view-header no-print">
+                        <div>
+                            <h1>Reports</h1>
+                            <p class="text-muted">Generate a clean printable administrative report for defense and documentation.</p>
+                        </div>
+
+                        <button class="btn-primary" id="print-admin-report-btn">
+                            <i class="ph ph-printer"></i> Print Report
+                        </button>
+                    </div>
+
+                    <div class="settings-card admin-report-document" id="admin-report-card">
+                        <div class="report-header">
+                            <h2>RentHaven Ghana</h2>
+                            <h3>Administrative System Report</h3>
+                            <p id="admin-report-date">Generated on: Loading...</p>
+                        </div>
+
+                        <div class="report-section">
+                            <h3>1. Platform Summary</h3>
+                            <p>
+                                This report presents a summary of user activity, property listings, negotiations,
+                                and active lease records currently available on the RentHaven Ghana rental platform.
+                            </p>
+                        </div>
+
+                        <div class="report-section">
+                            <h3>2. Key System Statistics</h3>
+                            <div id="admin-report-summary" class="report-stat-grid">
+                                Loading report summary...
+                            </div>
+                        </div>
+
+                        <div class="report-section">
+                            <h3>3. Administrative Observation</h3>
+                            <p id="admin-report-observation">
+                                Loading administrative observation...
+                            </p>
+                        </div>
+
+                        <div class="report-section">
+                            <h3>4. Report Purpose</h3>
+                            <p>
+                                This report is intended to help the system administrator monitor platform usage,
+                                support decision-making, and provide evidence of system functionality during project
+                                demonstration and defense.
+                            </p>
+                        </div>
+
+                        <div class="report-footer">
+                            <p>Prepared by RentHaven Ghana Admin Dashboard</p>
+                            <p>This document was generated electronically from the system database.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="profile" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Admin Profile</h1>
+                            <p class="text-muted">View and update your administrator account details.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="max-width: 760px;">
+                        <div class="profile-header-card" style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <img
+                                id="profile-avatar-display"
+                                src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff&size=80"
+                                alt="Avatar"
+                                style="border-radius: 50%; width: 80px; height: 80px; object-fit: cover;"
+                            >
+
+                            <div>
+                                <h2 id="profile-display-name" style="margin: 0 0 6px 0; font-size: 1.35rem; font-weight: 600;">
+                                    Loading Profile...
+                                </h2>
+                                <span class="status-badge status-rejected">Admin Account</span>
+                            </div>
+                        </div>
+
+                        <div
+                            id="account-settings-card"
+                            class="settings-card"
+                            style="background:#fff; padding:24px; border-radius:12px; border:1px solid #e2e8f0; margin-top:24px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);"
+                        >
+                            <h3 style="margin-top: 0; margin-bottom: 20px; font-weight: 600;">Account Settings</h3>
+
+                            <form id="admin-profile-form">
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label for="profile-name" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                        Full Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="profile-name"
+                                        style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom:16px;">
+                                    <div>
+                                        <label for="profile-phone" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                            Primary Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            id="profile-phone"
+                                            placeholder="e.g., 0240000000"
+                                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        >
+                                    </div>
+
+                                    <div>
+                                        <label for="profile-phone-alt" style="display: block; margin-bottom: 6px; font-weight: 500;">
+                                            Alternative Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            id="profile-phone-alt"
+                                            placeholder="Optional second number"
+                                            style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family: inherit;"
+                                        >
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn-primary" id="save-profile-btn" style="width: auto; padding: 10px 20px;">
+                                    Save Profile
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
