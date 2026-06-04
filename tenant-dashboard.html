@@ -17,7 +17,9 @@
         
         <aside class="sidebar" style="justify-content: flex-start;">
             <div class="sidebar-header">
-                <h2>RentHaven</h2>
+                <a href="tenant-dashboard.html" class="dashboard-brand-logo" aria-label="RentHaven Ghana Tenant Dashboard">
+                    <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
+                </a>
             </div>
             
             <nav class="sidebar-nav" style="margin-top: 28px;">
@@ -427,31 +429,31 @@
                         <div class="settings-card" style="margin-top: 24px;">
                             <h3>Security</h3>
 
-                           <form id="password-form">
-    <div class="form-group">
-        <label for="new-password">New Password</label>
-        <input
-            type="password"
-            id="new-password"
-            placeholder="Enter a new strong password"
-            required
-            minlength="6"
-        >
-    </div>
+                            <form id="password-form">
+                                <div class="form-group">
+                                    <label for="new-password">New Password</label>
+                                    <input
+                                        type="password"
+                                        id="new-password"
+                                        placeholder="Enter a new strong password"
+                                        required
+                                        minlength="6"
+                                    >
+                                </div>
 
-    <div class="form-group">
-        <label for="confirm-new-password">Confirm New Password</label>
-        <input
-            type="password"
-            id="confirm-new-password"
-            placeholder="Re-enter the new password"
-            required
-            minlength="6"
-        >
-    </div>
+                                <div class="form-group">
+                                    <label for="confirm-new-password">Confirm New Password</label>
+                                    <input
+                                        type="password"
+                                        id="confirm-new-password"
+                                        placeholder="Re-enter the new password"
+                                        required
+                                        minlength="6"
+                                    >
+                                </div>
 
-    <button type="submit" class="btn-outline" id="update-password-btn">Update Password</button>
-</form>
+                                <button type="submit" class="btn-outline" id="update-password-btn">Update Password</button>
+                            </form>
                         </div>
                     </div>
                 </section>
@@ -484,7 +486,7 @@
         </div>
     </div>
 
-        <!-- Printable Lease Agreement Area -->
+    <!-- Printable Lease Agreement Area -->
     <div id="print-lease-area" style="display: none;"></div>
 
     <!-- Floating AI Search Chatbot -->
@@ -538,6 +540,29 @@
     </div>
 
     <style>
+        .dashboard-brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-decoration: none;
+        }
+
+        .dashboard-brand-logo img {
+            width: 190px;
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        .sidebar-header {
+            padding: 10px 12px 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         #ai-chatbot-widget {
             position: fixed;
             right: 22px;

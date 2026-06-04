@@ -7,19 +7,44 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .brand-logo img {
+            height: 58px;
+            width: auto;
+            max-width: 240px;
+            object-fit: contain;
+            display: block;
+        }
+
+        @media screen and (max-width: 640px) {
+            .brand-logo img {
+                height: 50px;
+                max-width: 220px;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
 
     <nav class="bg-white shadow-sm p-4 mb-8">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-           <a
-    href="index.html"
-    id="brand-home-link"
-    class="font-bold text-xl text-teal-600"
->
-    RentHaven Ghana
-</a>
+            <a
+                href="index.html"
+                id="brand-home-link"
+                class="brand-logo"
+                aria-label="RentHaven Ghana Home"
+            >
+                <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
+            </a>
 
             <div class="flex items-center gap-3 flex-wrap">
                 <a href="tenant-dashboard.html" class="text-sm font-medium text-gray-600 hover:text-teal-600">

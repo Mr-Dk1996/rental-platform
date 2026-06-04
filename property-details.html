@@ -10,6 +10,21 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .brand-logo img {
+            height: 58px;
+            width: auto;
+            max-width: 240px;
+            object-fit: contain;
+            display: block;
+        }
+
         #ai-chatbot-widget {
             position: fixed;
             right: 22px;
@@ -217,6 +232,11 @@
         }
 
         @media screen and (max-width: 640px) {
+            .brand-logo img {
+                height: 50px;
+                max-width: 220px;
+            }
+
             #ai-chatbot-widget {
                 right: 14px;
                 bottom: 14px;
@@ -244,9 +264,10 @@
             <a
                 href="#"
                 id="brand-home-link"
-                class="font-bold text-xl text-teal-600"
+                class="brand-logo"
+                aria-label="RentHaven Ghana Home"
             >
-                RentHaven Ghana
+                <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
             </a>
 
             <div class="flex items-center gap-3 flex-wrap">

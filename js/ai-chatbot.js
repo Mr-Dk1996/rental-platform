@@ -6,6 +6,9 @@
     const input = document.getElementById('ai-chatbot-input');
     const messages = document.getElementById('ai-chatbot-messages');
     const suggestions = document.getElementById('ai-chatbot-suggestions');
+    const chatbotWidget = document.getElementById('ai-chatbot-widget');
+const chatbotMode = chatbotWidget?.dataset?.chatbotMode || 'full';
+const isHelpOnlyMode = chatbotMode === 'help-only';
 
     if (!toggleBtn || !panel || !form || !input || !messages) return;
 
@@ -569,20 +572,31 @@
             return;
         }
 
-        if (shouldSearchProperties(message)) {
-            addMessage('Searching available properties for you...', 'bot');
+       if (shouldSearchProperties(message)) {
+    if (isHelpOnlyMode) {
+        addMessage(`
+            This Contact Us assistant is mainly for platform guidance and support questions.
+            <br><br>
+            To search for rooms, please go to the <strong>homepage</strong> or log in to your <strong>Tenant Dashboard</strong>.
+            There, the AI assistant can help you find available properties by location, type, and budget.
+        `, 'bot');
 
-            try {
-                const searchData = await searchProperties(message);
-                const response = renderPropertyResults(searchData);
-                addMessage(response, 'bot');
-            } catch (err) {
-                console.error('AI property search error:', err);
-                addMessage('Sorry, I could not search properties right now. Please refresh and try again.', 'bot');
-            }
+        return;
+    }
 
-            return;
-        }
+    addMessage('Searching available properties for you...', 'bot');
+
+    try {
+        const searchData = await searchProperties(message);
+        const response = renderPropertyResults(searchData);
+        addMessage(response, 'bot');
+    } catch (err) {
+        console.error('AI property search error:', err);
+        addMessage('Sorry, I could not search properties right now. Please refresh and try again.', 'bot');
+    }
+
+    return;
+}
 
         if (helpAnswer) {
             addMessage(helpAnswer, 'bot');

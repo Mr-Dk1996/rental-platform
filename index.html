@@ -90,6 +90,21 @@
             color: #db4437;
         }
 
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+       .brand-logo img {
+    height: 58px;
+    width: auto;
+    max-width: 240px;
+    object-fit: contain;
+    display: block;
+}
+
         .top-nav {
             display: flex;
             align-items: center;
@@ -107,6 +122,13 @@
 
         .top-nav a:hover {
             color: #0d8abc;
+        }
+
+        .top-nav a.active-public-link {
+            color: #0f766e;
+            background: #ccfbf1;
+            padding: 8px 12px;
+            border-radius: 999px;
         }
 
         #ai-chatbot-widget {
@@ -322,6 +344,11 @@
                 gap: 12px;
             }
 
+            .brand-logo img {
+    height: 50px;
+    max-width: 220px;
+}
+
             .top-nav {
                 width: 100%;
             }
@@ -351,12 +378,14 @@
 <body>
 
     <header>
-        <div class="logo"><strong>RentHaven</strong> Ghana</div>
+        <a href="index.html" class="brand-logo" aria-label="RentHaven Ghana Home">
+            <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
+        </a>
 
         <nav class="top-nav">
-            <a href="index.html">Home</a>
+            <a href="index.html" class="active-public-link">Home</a>
             <a href="about.html">About Us</a>
-            <a href="help.html">Help</a>
+            <a href="help.html">Contact Us</a>
             <button onclick="openModal('login')" class="nav-login">Log In</button>
             <button onclick="openModal('signup')" class="nav-signup">Sign Up</button>
         </nav>

@@ -11,6 +11,36 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+        .admin-sidebar-header {
+            padding: 10px 12px 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dashboard-brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-decoration: none;
+        }
+
+        .dashboard-brand-logo img {
+            width: 190px;
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        .admin-portal-badge {
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+
         .admin-report-document {
             max-width: 900px;
             margin: 0 auto;
@@ -175,9 +205,12 @@
     <div class="dashboard-layout">
 
         <aside class="sidebar" style="justify-content: flex-start;">
-            <div class="sidebar-header">
-                <h2>RentHaven</h2>
-                <span class="status-badge status-rejected" style="font-size: 0.75rem; margin-top: 4px;">
+            <div class="sidebar-header admin-sidebar-header">
+                <a href="admin-dashboard.html" class="dashboard-brand-logo" aria-label="RentHaven Ghana Admin Dashboard">
+                    <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
+                </a>
+
+                <span class="status-badge status-rejected admin-portal-badge">
                     Admin Portal
                 </span>
             </div>
