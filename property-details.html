@@ -12,34 +12,34 @@
 <body class="bg-gray-50 min-h-screen">
 
     <nav class="bg-white shadow-sm p-4 mb-8">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        <a
-            href="#"
-            id="brand-home-link"
-            class="font-bold text-xl text-teal-600"
-        >
-            RentHaven Ghana
-        </a>
-
-        <div class="flex items-center gap-3">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <a
                 href="#"
-                id="dashboard-link"
-                class="text-sm font-medium text-gray-600 hover:text-teal-600"
+                id="brand-home-link"
+                class="font-bold text-xl text-teal-600"
             >
-                Dashboard
+                RentHaven Ghana
             </a>
 
-            <a
-                href="#"
-                id="browse-link"
-                class="text-sm font-medium text-gray-600 hover:text-teal-600"
-            >
-                Browse Properties
-            </a>
+            <div class="flex items-center gap-3 flex-wrap">
+                <a
+                    href="#"
+                    id="dashboard-link"
+                    class="text-sm font-medium text-gray-600 hover:text-teal-600"
+                >
+                    Dashboard
+                </a>
+
+                <a
+                    href="#"
+                    id="browse-link"
+                    class="text-sm font-medium text-gray-600 hover:text-teal-600"
+                >
+                    Browse Properties
+                </a>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
     <div class="max-w-7xl mx-auto px-4 pb-8" id="loading-state">
         <p class="text-center text-gray-500">Loading property details...</p>
@@ -53,7 +53,7 @@
 
                 <!-- Property Image Gallery -->
                 <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-                    <div class="relative h-[420px] bg-black flex items-center justify-center group">
+                    <div class="relative h-[300px] sm:h-[420px] bg-black flex items-center justify-center group">
                         <img
                             id="main-image"
                             src=""
@@ -112,7 +112,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-lg font-bold mb-4">Property Specifications</h2>
 
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                             <span class="text-xs text-gray-400 block">Property Type</span>
                             <span id="spec-type" class="font-semibold">-</span>
@@ -174,14 +174,30 @@
             <div class="space-y-6">
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">
-                    <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span id="agent-initial" class="text-xl font-bold text-teal-700">L</span>
-                    </div>
+                    <button
+                        id="landlord-profile-card"
+                        type="button"
+                        class="w-full group cursor-pointer focus:outline-none"
+                        title="View landlord profile"
+                    >
+                        <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-teal-200 transition">
+                            <span id="agent-initial" class="text-xl font-bold text-teal-700">L</span>
+                        </div>
 
-                    <h3 id="agent-name" class="font-bold text-gray-900">Loading Landlord...</h3>
-                    <p class="text-xs text-gray-400 mb-4">Property Owner</p>
+                        <h3 id="agent-name" class="font-bold text-gray-900 group-hover:text-teal-700 transition">
+                            Loading Landlord...
+                        </h3>
 
-                    <button id="btn-show-contact" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-xl transition">
+                        <p class="text-xs text-gray-400 mb-1">Property Owner</p>
+                        <p class="text-xs text-teal-600 font-semibold mb-4">
+                            Tap profile to view other listings
+                        </p>
+                    </button>
+
+                    <button
+                        id="btn-show-contact"
+                        class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 rounded-xl transition"
+                    >
                         Show Contact Number
                     </button>
                 </div>

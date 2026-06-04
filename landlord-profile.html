@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Profile | RentHaven Ghana</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <nav class="bg-white shadow-sm p-4 mb-8">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+           <a
+    href="index.html"
+    id="brand-home-link"
+    class="font-bold text-xl text-teal-600"
+>
+    RentHaven Ghana
+</a>
+
+            <div class="flex items-center gap-3 flex-wrap">
+                <a href="tenant-dashboard.html" class="text-sm font-medium text-gray-600 hover:text-teal-600">
+                    Tenant Dashboard
+                </a>
+
+                <a href="index.html" class="text-sm font-medium text-gray-600 hover:text-teal-600">
+                    Home
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 pb-10">
+        <div id="loading-state" class="text-center text-gray-500">
+            Loading landlord profile...
+        </div>
+
+        <div id="profile-container" class="hidden">
+            <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+                <div class="flex flex-col md:flex-row md:items-center gap-5">
+                    <div class="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center">
+                        <span id="landlord-initial" class="text-3xl font-bold text-teal-700">L</span>
+                    </div>
+
+                    <div class="flex-1">
+                        <h1 id="landlord-name" class="text-2xl font-extrabold text-gray-900">
+                            Loading Landlord...
+                        </h1>
+
+                        <p class="text-gray-500 text-sm mt-1">
+                            RentHaven Ghana Property Owner
+                        </p>
+
+                        <div class="flex flex-wrap gap-3 mt-4 text-sm text-gray-600">
+                            <span id="landlord-phone" class="bg-gray-100 px-3 py-2 rounded-xl">
+                                Phone: Not provided
+                            </span>
+
+                            <span id="landlord-alt-phone" class="bg-gray-100 px-3 py-2 rounded-xl hidden">
+                                Alt: Not provided
+                            </span>
+
+                            <span id="landlord-email" class="bg-gray-100 px-3 py-2 rounded-xl hidden">
+                                Email: Not provided
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="bg-teal-50 border border-teal-100 rounded-2xl px-5 py-4 text-center">
+                        <p id="landlord-property-count" class="text-3xl font-extrabold text-teal-700">0</p>
+                        <p class="text-xs font-semibold text-teal-700 uppercase tracking-wide">
+                            Listed Properties
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">Properties by this Landlord</h2>
+                        <p class="text-sm text-gray-500">
+                            Browse rooms and apartments posted by this property owner.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="landlord-properties-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/supabase-config.js"></script>
+    <script src="js/landlord-profile.js"></script>
+</body>
+</html>

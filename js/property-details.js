@@ -256,32 +256,47 @@
     }
 
     function updatePropertyDetailsNavigation() {
-    const brandHomeLink = document.getElementById('brand-home-link');
-    const dashboardLink = document.getElementById('dashboard-link');
-    const browseLink = document.getElementById('browse-link');
+        const brandHomeLink = document.getElementById('brand-home-link');
+        const dashboardLink = document.getElementById('dashboard-link');
+        const browseLink = document.getElementById('browse-link');
 
-    let targetDashboard = 'index.html';
+        let targetDashboard = 'index.html';
 
-    if (currentProfile?.role === 'Landlord') {
-        targetDashboard = 'landlord-dashboard.html';
+        if (currentProfile?.role === 'Landlord') {
+            targetDashboard = 'landlord-dashboard.html';
+        }
+
+        if (currentProfile?.role === 'Tenant') {
+            targetDashboard = 'tenant-dashboard.html';
+        }
+
+        if (brandHomeLink) {
+            brandHomeLink.href = targetDashboard;
+        }
+
+        if (dashboardLink) {
+            dashboardLink.href = targetDashboard;
+        }
+
+        if (browseLink) {
+            browseLink.href = targetDashboard;
+        }
     }
 
-    if (currentProfile?.role === 'Tenant') {
-        targetDashboard = 'tenant-dashboard.html';
-    }
+    function bindLandlordProfileCard(property) {
+        const landlordProfileCard = document.getElementById('landlord-profile-card');
 
-    if (brandHomeLink) {
-        brandHomeLink.href = targetDashboard;
-    }
+        if (!landlordProfileCard) return;
 
-    if (dashboardLink) {
-        dashboardLink.href = targetDashboard;
-    }
+        landlordProfileCard.onclick = () => {
+            if (!property?.landlord_id) {
+                alert('Landlord profile is not available for this property.');
+                return;
+            }
 
-    if (browseLink) {
-        browseLink.href = targetDashboard;
+            window.location.href = `landlord-profile.html?landlord_id=${encodeURIComponent(property.landlord_id)}`;
+        };
     }
-}
 
     async function loadPropertyDetails() {
         const loadingState = document.getElementById('loading-state');
@@ -383,6 +398,7 @@
                 };
             }
 
+            bindLandlordProfileCard(property);
             setupNegotiationArea();
 
             if (loadingState) {
