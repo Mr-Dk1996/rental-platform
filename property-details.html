@@ -263,30 +263,30 @@
     <nav class="bg-white shadow-sm p-4 mb-8">
         <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <a
-                href="#"
-                id="brand-home-link"
-                class="brand-logo"
-                aria-label="RentHaven Ghana Home"
-            >
-                <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
-            </a>
+    href="index.html"
+    id="brand-home-link"
+    class="brand-logo"
+    aria-label="RentHaven Ghana Home"
+>
+    <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo">
+</a>
 
             <div class="flex items-center gap-3 flex-wrap">
                 <a
-                    href="#"
-                    id="dashboard-link"
-                    class="text-sm font-medium text-gray-600 hover:text-teal-600"
-                >
-                    Dashboard
-                </a>
+    href="#"
+    id="dashboard-link"
+    class="text-sm font-medium text-gray-600 hover:text-teal-600"
+>
+    Dashboard
+</a>
 
                 <a
-                    href="#"
-                    id="browse-link"
-                    class="text-sm font-medium text-gray-600 hover:text-teal-600"
-                >
-                    Browse Properties
-                </a>
+    href="index.html"
+    id="browse-link"
+    class="text-sm font-medium text-gray-600 hover:text-teal-600"
+>
+    Browse Properties
+</a>
             </div>
         </div>
     </nav>
@@ -566,7 +566,34 @@
     </div>
 
     <script src="js/supabase-config.js"></script>
-    <script src="js/property-details.js"></script>
-    <script src="js/ai-chatbot.js"></script>
+<script src="js/property-details.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dashboardLink = document.getElementById('dashboard-link');
+        const browseLink = document.getElementById('browse-link');
+
+        if (browseLink) {
+            browseLink.setAttribute('href', 'index.html');
+
+            browseLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                window.location.href = 'index.html';
+            }, true);
+        }
+
+        if (dashboardLink) {
+            dashboardLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+
+                alert('Please sign in first to access your dashboard.');
+                window.location.href = 'index.html';
+            }, true);
+        }
+    });
+</script>
+
+<script src="js/ai-chatbot.js"></script>
 </body>
 </html>
