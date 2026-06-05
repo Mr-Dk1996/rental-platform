@@ -1674,3 +1674,161 @@ header {
         background: #f1f5f9 !important;
     }
 }
+
+/* ================================
+   FINAL BRANDING POLISH
+   RentHaven Ghana Theme
+================================ */
+
+/* Brand variables */
+:root {
+    --rh-primary: #0f766e;
+    --rh-primary-light: #0d9488;
+    --rh-primary-soft: #ccfbf1;
+    --rh-dark: #0f172a;
+    --rh-muted: #64748b;
+    --rh-border: #e2e8f0;
+    --rh-bg: #f8fafc;
+    --rh-cream: #fffaf0;
+    --rh-white: #ffffff;
+    --rh-danger: #dc2626;
+    --rh-success: #16a34a;
+}
+
+/* Page background consistency */
+body {
+    color: var(--rh-dark);
+}
+
+/* Primary buttons */
+.btn-primary,
+button.btn-primary,
+a.btn-primary,
+.nav-signup {
+    background: linear-gradient(135deg, var(--rh-primary), var(--rh-primary-light)) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+.btn-primary:hover,
+button.btn-primary:hover,
+a.btn-primary:hover,
+.nav-signup:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+}
+
+/* Outline buttons */
+.btn-outline,
+button.btn-outline,
+a.btn-outline,
+.nav-login {
+    background: #ffffff !important;
+    color: var(--rh-primary) !important;
+    border: 1px solid #99f6e4 !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease !important;
+}
+
+.btn-outline:hover,
+button.btn-outline:hover,
+a.btn-outline:hover,
+.nav-login:hover {
+    background: var(--rh-primary-soft) !important;
+    color: var(--rh-primary) !important;
+    border-color: var(--rh-primary-light) !important;
+}
+
+/* Card consistency */
+.property-card,
+.info-card,
+.support-card,
+.section-card,
+.settings-card,
+.list-card,
+.profile-header-card {
+    border: 1px solid var(--rh-border);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+}
+
+/* Property card hover */
+.property-card {
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.property-card:hover {
+    transform: translateY(-4px);
+    border-color: #99f6e4;
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.09);
+}
+
+/* Inputs and selects */
+input,
+select,
+textarea {
+    border-radius: 10px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--rh-primary) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12) !important;
+    outline: none !important;
+}
+
+/* Active sidebar item */
+.sidebar-nav .nav-item.active,
+.sidebar-nav .nav-item:hover {
+    background: var(--rh-primary-soft);
+    color: var(--rh-primary);
+}
+
+/* Status badge polish */
+.status-badge {
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+/* Top navigation active link */
+.active-public-link {
+    background: var(--rh-primary-soft) !important;
+    color: var(--rh-primary) !important;
+    border-radius: 999px;
+}
+
+/* Price color consistency */
+.price,
+#prop-price {
+    color: var(--rh-primary) !important;
+}
+
+/* Recommended label polish */
+.browse-ai-label {
+    background: #ecfdf5 !important;
+    color: #047857 !important;
+    border: 1px solid #a7f3d0 !important;
+}
+
+/* Mobile card polish */
+@media screen and (max-width: 640px) {
+    .property-card {
+        border-radius: 14px !important;
+    }
+
+    .property-card:hover {
+        transform: none;
+    }
+
+    .btn-primary,
+    .btn-outline {
+        border-radius: 10px !important;
+    }
+}

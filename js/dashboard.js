@@ -3,9 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // GLOBAL STATE
     // ==========================================
     let activeNegotiationId = null;
-    let currentUser = null;
-    let activeChatChannel = null;
+let currentUser = null;
+let activeChatChannel = null;
 
+let tenantActivityTimer = null;
+let browsePersonalizationTimer = null;
     // ==========================================
     // 1. NAVIGATION LOGIC
     // ==========================================
@@ -565,6 +567,395 @@ if (newPassword !== confirmNewPassword) {
     }
 
     bindTenantNotificationUI();
+
+            // ==========================================
+    // 5B. TENANT ACTIVITY TRACKING FOR PERSONALIZED BROWSE
+    // ==========================================
+    const browseSearchInput = document.getElementById('search-input');
+    const browseTypeFilter = document.getElementById('filter-type');
+    const browsePriceFilter = document.getElementById('filter-price');
+    const browsePropertiesGrid = document.getElementById('properties-grid');
+
+    function getBudgetFromPriceFilter(value) {
+        if (value === 'low') return 1000;
+        if (value === 'mid') return 3000;
+        if (value === 'high') return 5000;
+        return null;
+    }
+
+    async function recordTenantActivity(activity) {
+        try {
+            const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+            if (authError || !user) return;
+
+            await supabaseClient
+                .from('tenant_activity')
+                .insert([{
+                    tenant_id: user.id,
+                    activity_type: activity.activity_type,
+                    property_id: activity.property_id || null,
+                    search_location: activity.search_location || null,
+                    property_type: activity.property_type || null,
+                    budget: activity.budget || null
+                }]);
+        } catch (error) {
+            console.warn('Tenant activity tracking skipped:', error.message);
+        }
+    }
+
+    function debounceTenantActivity(callback, delay = 700) {
+        clearTimeout(tenantActivityTimer);
+        tenantActivityTimer = setTimeout(callback, delay);
+    }
+
+    function bindBrowseActivityTracking() {
+        browseSearchInput?.addEventListener('input', () => {
+            const searchValue = browseSearchInput.value.trim();
+
+            if (searchValue.length < 2) return;
+
+            debounceTenantActivity(() => {
+                recordTenantActivity({
+                    activity_type: 'search_location',
+                    search_location: searchValue
+                });
+
+                setTimeout(personalizeBrowseRoomCards, 600);
+            });
+        });
+
+        browseTypeFilter?.addEventListener('change', () => {
+            const selectedType = browseTypeFilter.value;
+
+            if (!selectedType || selectedType === 'all') return;
+
+            recordTenantActivity({
+                activity_type: 'filter_type',
+                property_type: selectedType
+            });
+
+            setTimeout(personalizeBrowseRoomCards, 600);
+        });
+
+        browsePriceFilter?.addEventListener('change', () => {
+            const selectedPrice = browsePriceFilter.value;
+            const budget = getBudgetFromPriceFilter(selectedPrice);
+
+            if (!budget) return;
+
+            recordTenantActivity({
+                activity_type: 'filter_budget',
+                budget: budget
+            });
+
+            setTimeout(personalizeBrowseRoomCards, 600);
+        });
+
+        document.addEventListener('click', (event) => {
+            const propertyCard = event.target.closest('#properties-grid .property-card');
+            const viewButton = event.target.closest('#properties-grid button, #properties-grid a');
+
+            const sourceElement = viewButton || propertyCard;
+
+            if (!sourceElement) return;
+
+            const propertyId =
+                sourceElement.getAttribute('data-id') ||
+                propertyCard?.getAttribute('data-id') ||
+                sourceElement.getAttribute('data-property-id') ||
+                propertyCard?.getAttribute('data-property-id');
+
+            if (!propertyId) return;
+
+            const cardText = propertyCard?.innerText || '';
+            const typeText = propertyCard?.querySelector('.property-type')?.innerText?.trim() || '';
+
+           recordTenantActivity({
+    activity_type: 'view_property',
+    property_id: propertyId,
+    property_type: typeText || null,
+    search_location: null
+});
+        }, true);
+    }
+
+    async function getTenantPersonalizationSignals() {
+        const signals = {
+            searchedLocations: new Set(),
+            filteredTypes: new Set(),
+            viewedPropertyIds: new Set(),
+            savedPropertyIds: new Set(),
+            negotiatedPropertyIds: new Set(),
+            budgets: []
+        };
+
+        try {
+            const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+            if (authError || !user) return signals;
+
+            const { data: activities } = await supabaseClient
+                .from('tenant_activity')
+                .select('*')
+                .eq('tenant_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(60);
+
+            (activities || []).forEach(activity => {
+                if (activity.activity_type === 'search_location' && activity.search_location) {
+    signals.searchedLocations.add(normalizeText(activity.search_location));
+}
+
+                if (activity.property_type) {
+                    signals.filteredTypes.add(normalizeText(activity.property_type));
+                }
+
+                if (activity.property_id) {
+                    signals.viewedPropertyIds.add(activity.property_id);
+                }
+
+                if (activity.budget) {
+                    signals.budgets.push(Number(activity.budget));
+                }
+            });
+
+            const { data: savedItems } = await supabaseClient
+                .from('saved_properties')
+                .select('property_id')
+                .eq('user_id', user.id);
+
+            (savedItems || []).forEach(item => {
+                if (item.property_id) signals.savedPropertyIds.add(item.property_id);
+            });
+
+            const { data: negotiations } = await supabaseClient
+                .from('negotiations')
+                .select('property_id')
+                .eq('tenant_id', user.id);
+
+            (negotiations || []).forEach(item => {
+                if (item.property_id) signals.negotiatedPropertyIds.add(item.property_id);
+            });
+        } catch (error) {
+            console.warn('Unable to load tenant personalization signals:', error.message);
+        }
+
+        return signals;
+    }
+
+    function getCardTextValue(card, selectors) {
+        for (const selector of selectors) {
+            const element = card.querySelector(selector);
+
+            if (element && element.innerText) {
+                return element.innerText.trim();
+            }
+        }
+
+        return '';
+    }
+
+    function getCardPrice(card) {
+        const text = card.innerText || '';
+        const match = text.match(/(?:GHS|GH₵|₵)\s*([\d,]+)/i);
+
+        if (!match) return 0;
+
+        return Number(String(match[1]).replace(/,/g, '')) || 0;
+    }
+
+    function scoreBrowseCard(card, signals) {
+        let score = 0;
+        const reasons = [];
+
+        const cardId =
+            card.getAttribute('data-id') ||
+            card.getAttribute('data-property-id') ||
+            card.querySelector('[data-id]')?.getAttribute('data-id') ||
+            '';
+
+        const cardText = normalizeText(card.innerText || '');
+        const cardType = normalizeText(getCardTextValue(card, ['.property-type', '.type', '.property-card-type']));
+        const cardPrice = getCardPrice(card);
+
+        if (cardId && signals.savedPropertyIds.has(cardId)) {
+            score += 40;
+            reasons.push('Saved by you');
+        }
+
+        if (cardId && signals.negotiatedPropertyIds.has(cardId)) {
+            score += 35;
+            reasons.push('You interacted before');
+        }
+
+        if (cardId && signals.viewedPropertyIds.has(cardId)) {
+            score += 18;
+            reasons.push('Viewed before');
+        }
+
+        signals.filteredTypes.forEach(type => {
+            if (type && (cardType.includes(type) || cardText.includes(type))) {
+                score += 25;
+                reasons.push('Matches your room type');
+            }
+        });
+
+        signals.searchedLocations.forEach(location => {
+            if (!location) return;
+
+            const locationWords = location.split(' ').filter(word => word.length > 2);
+
+            if (locationWords.some(word => cardText.includes(word))) {
+                score += 25;
+                reasons.push('Matches your recent location search');
+            }
+        });
+
+        if (signals.budgets.length > 0 && cardPrice > 0) {
+            const highestBudget = Math.max(...signals.budgets);
+
+            if (cardPrice <= highestBudget) {
+                score += 15;
+                reasons.push('Within your recent budget');
+            }
+        }
+
+        return {
+            score,
+            reasons: [...new Set(reasons)]
+        };
+    }
+
+    function removeBrowseRecommendationLabels() {
+        browsePropertiesGrid?.querySelectorAll('.browse-ai-label').forEach(label => label.remove());
+    }
+
+    function addBrowseRecommendationLabel(card, score, reasons) {
+        if (!card || score < 55) return;
+
+        if (card.querySelector('.browse-ai-label')) return;
+
+        const imageContainer =
+            card.querySelector('.image-container') ||
+            card.querySelector('.property-image') ||
+            card;
+
+        if (imageContainer && imageContainer !== card) {
+            imageContainer.style.position = 'relative';
+        }
+
+        const label = document.createElement('div');
+        label.className = 'browse-ai-label';
+        label.innerHTML = `<i class="ph ph-sparkle"></i> Recommended for you`;
+
+        label.style.position = 'absolute';
+        label.style.top = '10px';
+        label.style.left = '10px';
+        label.style.zIndex = '3';
+        label.style.background = '#ecfdf5';
+        label.style.color = '#047857';
+        label.style.border = '1px solid #a7f3d0';
+        label.style.borderRadius = '999px';
+        label.style.padding = '6px 10px';
+        label.style.fontSize = '0.72rem';
+        label.style.fontWeight = '800';
+        label.style.boxShadow = '0 8px 18px rgba(15, 23, 42, 0.12)';
+
+        if (imageContainer && imageContainer !== card) {
+            imageContainer.appendChild(label);
+        } else {
+            card.style.position = 'relative';
+            card.appendChild(label);
+        }
+
+        card.setAttribute('title', reasons.join(', '));
+    }
+
+    async function personalizeBrowseRoomCards() {
+        if (!browsePropertiesGrid) return;
+
+        clearTimeout(browsePersonalizationTimer);
+
+        browsePersonalizationTimer = setTimeout(async () => {
+            const cards = Array.from(browsePropertiesGrid.querySelectorAll('.property-card'))
+                .filter(card => !card.classList.contains('skeleton-card'));
+
+            if (cards.length === 0) return;
+
+            const signals = await getTenantPersonalizationSignals();
+
+            const hasSignals =
+                signals.searchedLocations.size > 0 ||
+                signals.filteredTypes.size > 0 ||
+                signals.viewedPropertyIds.size > 0 ||
+                signals.savedPropertyIds.size > 0 ||
+                signals.negotiatedPropertyIds.size > 0 ||
+                signals.budgets.length > 0;
+
+            if (!hasSignals) return;
+
+            removeBrowseRecommendationLabels();
+
+            const scoredCards = cards.map((card, index) => {
+                const match = scoreBrowseCard(card, signals);
+
+                card.dataset.personalScore = String(match.score);
+                card.dataset.originalIndex = String(index);
+
+                return {
+                    card,
+                    score: match.score,
+                    reasons: match.reasons,
+                    originalIndex: index
+                };
+            });
+
+            scoredCards.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return a.originalIndex - b.originalIndex;
+            });
+
+            const seenPropertyCards = new Set();
+
+scoredCards.forEach(item => {
+    const propertyId =
+        item.card.getAttribute('data-id') ||
+        item.card.getAttribute('data-property-id');
+
+    if (propertyId && seenPropertyCards.has(propertyId)) {
+        item.card.remove();
+        return;
+    }
+
+    if (propertyId) {
+        seenPropertyCards.add(propertyId);
+    }
+
+    if (item.score >= 55) {
+        addBrowseRecommendationLabel(item.card, item.score, item.reasons);
+    }
+
+    browsePropertiesGrid.appendChild(item.card);
+});
+        }, 250);
+    }
+
+    bindBrowseActivityTracking();
+
+    if (browsePropertiesGrid) {
+        const browseObserver = new MutationObserver(() => {
+            personalizeBrowseRoomCards();
+        });
+
+        browseObserver.observe(browsePropertiesGrid, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    window.personalizeBrowseRoomCards = personalizeBrowseRoomCards;
+    window.recordTenantActivity = recordTenantActivity;
 
     // ==========================================
     // 6. NEGOTIATIONS AND REALTIME CHAT
@@ -1413,8 +1804,13 @@ if (newPassword !== confirmNewPassword) {
             const propertyId = viewBtn.getAttribute('data-id');
 
             if (propertyId) {
-                window.location.href = `property-details.html?id=${propertyId}`;
-            }
+    recordTenantActivity({
+        activity_type: 'view_property',
+        property_id: propertyId
+    });
+
+    window.location.href = `property-details.html?id=${propertyId}`;
+}
 
             return;
         }
@@ -1936,9 +2332,12 @@ if (newPassword !== confirmNewPassword) {
 
             const propertyId = aiViewBtn.getAttribute('data-id');
 
-            if (propertyId) {
-                window.location.href = `property-details.html?id=${propertyId}`;
-            }
+           recordTenantActivity({
+    activity_type: 'view_property',
+    property_id: propertyId
+});
+
+window.location.href = `property-details.html?id=${propertyId}`;
 
             return;
         }
