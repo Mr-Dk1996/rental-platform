@@ -1616,3 +1616,41 @@ header {
         grid-template-columns: 1fr !important;
     }
 }
+
+/* Mobile property grid polish */
+@media screen and (max-width: 640px) {
+    .card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+    }
+
+    .property-card {
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .property-card img,
+    .property-card .property-image {
+        height: 130px !important;
+        object-fit: cover;
+    }
+
+    .property-card .card-content {
+        padding: 12px !important;
+    }
+
+    .property-card h3,
+    .property-card h4 {
+        font-size: 0.9rem !important;
+        line-height: 1.25;
+    }
+
+    .property-card p {
+        font-size: 0.78rem !important;
+    }
+
+    .property-price,
+    .price {
+        font-size: 0.9rem !important;
+    }
+}
