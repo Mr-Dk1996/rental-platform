@@ -1654,3 +1654,23 @@ header {
         font-size: 0.9rem !important;
     }
 }
+
+/* Fix mobile property image blank space */
+@media screen and (max-width: 640px) {
+    .property-card img {
+        width: 100% !important;
+        height: 135px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        display: block !important;
+    }
+
+    .property-card .image-container,
+    .property-card .property-image,
+    .property-card .card-image {
+        width: 100% !important;
+        height: 135px !important;
+        overflow: hidden !important;
+        background: #f1f5f9 !important;
+    }
+}
