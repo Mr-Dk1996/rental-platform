@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifying Payment | RentHaven Ghana</title>
+    <link rel="icon" type="image/png" href="images/renthaven-logo.png">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f8fafc, #ecfeff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #0f172a;
+        }
+
+        .payment-card {
+            width: min(92%, 520px);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+            padding: 34px;
+            text-align: center;
+        }
+
+        .payment-logo {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            margin-bottom: 18px;
+        }
+
+        .payment-icon {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ccfbf1;
+            color: #0f766e;
+            font-size: 2.5rem;
+        }
+
+        .payment-icon.error {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .payment-icon.loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        h1 {
+            font-size: 1.7rem;
+            margin: 0 0 10px;
+        }
+
+        p {
+            color: #64748b;
+            line-height: 1.6;
+            margin: 0 0 18px;
+        }
+
+        .payment-reference {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            padding: 12px;
+            color: #334155;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin: 18px 0;
+            word-break: break-word;
+        }
+
+        .callback-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 22px;
+        }
+
+        .callback-actions a {
+            text-decoration: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 520px) {
+            .payment-card {
+                padding: 26px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="payment-card">
+        <img src="images/renthaven-logo.png" alt="RentHaven Ghana Logo" class="payment-logo">
+
+        <div id="status-icon" class="payment-icon loading">
+            <i class="ph ph-spinner"></i>
+        </div>
+
+        <h1 id="status-title">Verifying your payment</h1>
+        <p id="status-message">
+            Please wait while RentHaven Ghana confirms your payment and secures the transaction in the blockchain ledger.
+        </p>
+
+        <div id="payment-reference" class="payment-reference" style="display: none;"></div>
+
+        <div class="callback-actions">
+            <a href="tenant-dashboard.html" class="btn-primary">Go to Dashboard</a>
+            <a href="index.html" class="btn-outline">Back Home</a>
+        </div>
+    </main>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const reference = params.get('reference');
+
+        const statusIcon = document.getElementById('status-icon');
+        const statusTitle = document.getElementById('status-title');
+        const statusMessage = document.getElementById('status-message');
+        const referenceBox = document.getElementById('payment-reference');
+
+        function showReference() {
+            if (!reference) return;
+
+            referenceBox.style.display = 'block';
+            referenceBox.textContent = `Reference: ${reference}`;
+        }
+
+        function setSuccess(message) {
+            statusIcon.className = 'payment-icon';
+            statusIcon.innerHTML = '<i class="ph ph-check-circle"></i>';
+            statusTitle.textContent = 'Payment verified successfully';
+            statusMessage.textContent = message || 'Your rent payment has been confirmed and secured in the blockchain ledger.';
+        }
+
+        function setError(message) {
+            statusIcon.className = 'payment-icon error';
+            statusIcon.innerHTML = '<i class="ph ph-warning-circle"></i>';
+            statusTitle.textContent = 'Payment verification failed';
+            statusMessage.textContent = message || 'We could not verify the payment. Please check your dashboard or contact support.';
+        }
+
+        async function verifyPayment() {
+            showReference();
+
+            if (!reference) {
+                setError('No payment reference was found in the payment callback URL.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/.netlify/functions/verify-payment?reference=${encodeURIComponent(reference)}`);
+                const result = await response.json();
+
+                if (!response.ok || result.status !== 'paid') {
+                    setError(result.error || result.message || 'The payment was not successful.');
+                    return;
+                }
+
+                setSuccess('Your rent payment has been confirmed and a secure blockchain ledger block has been created.');
+            } catch (error) {
+                setError(error.message);
+            }
+        }
+
+        verifyPayment();
+    </script>
+</body>
+</html>

@@ -3,11 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // GLOBAL STATE
     // ==========================================
     let activeNegotiationId = null;
-let currentUser = null;
-let activeChatChannel = null;
+    let currentUser = null;
+    let activeChatChannel = null;
+    let tenantActivityTimer = null;
+    let browsePersonalizationTimer = null;
 
-let tenantActivityTimer = null;
-let browsePersonalizationTimer = null;
     // ==========================================
     // 1. NAVIGATION LOGIC
     // ==========================================
@@ -31,6 +31,10 @@ let browsePersonalizationTimer = null;
             loadTenantLeases();
         }
 
+        if (sectionId === 'payments' && typeof loadTenantPayments === 'function') {
+            loadTenantPayments();
+        }
+
         if (sectionId === 'negotiations' && typeof loadNegotiations === 'function') {
             loadNegotiations();
         }
@@ -52,7 +56,6 @@ let browsePersonalizationTimer = null;
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-
             const targetName = item.getAttribute('data-target');
             showDashboardSection(targetName);
         });
@@ -95,19 +98,15 @@ let browsePersonalizationTimer = null;
         }
     }
 
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await performLogout(logoutBtn);
-        });
-    }
+    logoutBtn?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await performLogout(logoutBtn);
+    });
 
-    if (profileMenuLogout) {
-        profileMenuLogout.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await performLogout(profileMenuLogout);
-        });
-    }
+    profileMenuLogout?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await performLogout(profileMenuLogout);
+    });
 
     // ==========================================
     // 3. PROFILE MENU AND PROFILE MANAGEMENT
@@ -227,61 +226,59 @@ let browsePersonalizationTimer = null;
     loadUserProfile();
     bindProfileMenu();
 
-    if (profileForm) {
-        profileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    profileForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-            if (!currentUser?.id) {
-                alert('User session not found. Please log in again.');
-                return;
-            }
+        if (!currentUser?.id) {
+            alert('User session not found. Please log in again.');
+            return;
+        }
 
-            const btn = document.getElementById('save-profile-btn');
-            if (!btn) return;
+        const btn = document.getElementById('save-profile-btn');
+        if (!btn) return;
 
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Saving...';
-            btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Saving...';
+        btn.disabled = true;
 
-            const updatedName = profileNameInput?.value.trim() || '';
-            const updatedPhone = profilePhoneInput?.value.trim() || '';
-            const updatedPhoneAlt = profilePhoneAltInput?.value.trim() || '';
+        const updatedName = profileNameInput?.value.trim() || '';
+        const updatedPhone = profilePhoneInput?.value.trim() || '';
+        const updatedPhoneAlt = profilePhoneAltInput?.value.trim() || '';
 
-            try {
-                const { error } = await supabaseClient
-                    .from('users')
-                    .update({
-                        full_name: updatedName,
-                        phone: updatedPhone,
-                        phone_alt: updatedPhoneAlt
-                    })
-                    .eq('id', currentUser.id);
+        try {
+            const { error } = await supabaseClient
+                .from('users')
+                .update({
+                    full_name: updatedName,
+                    phone: updatedPhone,
+                    phone_alt: updatedPhoneAlt
+                })
+                .eq('id', currentUser.id);
 
-                if (error) throw error;
+            if (error) throw error;
 
-                await supabaseClient.auth.updateUser({
-                    data: {
-                        full_name: updatedName,
-                        phone: updatedPhone,
-                        phone_alt: updatedPhoneAlt
-                    }
-                });
+            await supabaseClient.auth.updateUser({
+                data: {
+                    full_name: updatedName,
+                    phone: updatedPhone,
+                    phone_alt: updatedPhoneAlt
+                }
+            });
 
-                btn.innerHTML = '<i class="ph ph-check"></i> Profile Updated!';
-                btn.style.backgroundColor = '#16a34a';
+            btn.innerHTML = '<i class="ph ph-check"></i> Profile Updated!';
+            btn.style.backgroundColor = '#16a34a';
 
-                await loadUserProfile();
-            } catch (err) {
-                alert('Failed to update profile: ' + err.message);
-            } finally {
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.backgroundColor = '';
-                    btn.disabled = false;
-                }, 2000);
-            }
-        });
-    }
+            await loadUserProfile();
+        } catch (err) {
+            alert('Failed to update profile: ' + err.message);
+        } finally {
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.backgroundColor = '';
+                btn.disabled = false;
+            }, 2000);
+        }
+    });
 
     function bindEmailUpdate() {
         updateEmailBtn?.addEventListener('click', async () => {
@@ -343,59 +340,58 @@ let browsePersonalizationTimer = null;
     // ==========================================
     const passwordForm = document.getElementById('password-form');
 
-    if (passwordForm) {
-        passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    passwordForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-            const newPasswordEl = document.getElementById('new-password');
-const confirmNewPasswordEl = document.getElementById('confirm-new-password');
+        const btn = document.getElementById('update-password-btn');
+        const newPasswordEl = document.getElementById('new-password');
+        const confirmNewPasswordEl = document.getElementById('confirm-new-password');
 
-if (!btn || !newPasswordEl || !confirmNewPasswordEl) return;
+        if (!btn || !newPasswordEl || !confirmNewPasswordEl) return;
 
-const newPassword = newPasswordEl.value;
-const confirmNewPassword = confirmNewPasswordEl.value;
+        const newPassword = newPasswordEl.value;
+        const confirmNewPassword = confirmNewPasswordEl.value;
 
-if (!newPassword || newPassword.length < 6) {
-    alert('Password must be at least 6 characters.');
-    return;
-}
+        if (!newPassword || newPassword.length < 6) {
+            alert('Password must be at least 6 characters.');
+            return;
+        }
 
-if (newPassword !== confirmNewPassword) {
-    alert('The two passwords do not match. Please check and try again.');
-    return;
-}
+        if (newPassword !== confirmNewPassword) {
+            alert('The two passwords do not match. Please check and try again.');
+            return;
+        }
 
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Updating...';
-            btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Updating...';
+        btn.disabled = true;
 
-            try {
-                const { error } = await supabaseClient.auth.updateUser({
-                    password: newPassword
-                });
+        try {
+            const { error } = await supabaseClient.auth.updateUser({
+                password: newPassword
+            });
 
-                if (error) throw error;
+            if (error) throw error;
 
-                btn.innerHTML = '<i class="ph ph-check"></i> Password Updated';
-                btn.style.backgroundColor = '#16a34a';
-                btn.style.borderColor = '#16a34a';
-                btn.style.color = 'white';
+            btn.innerHTML = '<i class="ph ph-check"></i> Password Updated';
+            btn.style.backgroundColor = '#16a34a';
+            btn.style.borderColor = '#16a34a';
+            btn.style.color = 'white';
 
-                newPasswordEl.value = '';
-                confirmNewPasswordEl.value = '';
-            } catch (error) {
-                alert('Failed to update password: ' + error.message);
-            } finally {
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.backgroundColor = '';
-                    btn.style.borderColor = '';
-                    btn.style.color = '';
-                    btn.disabled = false;
-                }, 3000);
-            }
-        });
-    }
+            newPasswordEl.value = '';
+            confirmNewPasswordEl.value = '';
+        } catch (error) {
+            alert('Failed to update password: ' + error.message);
+        } finally {
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.backgroundColor = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+                btn.disabled = false;
+            }, 3000);
+        }
+    });
 
     // ==========================================
     // 5. TENANT NOTIFICATIONS
@@ -568,13 +564,21 @@ if (newPassword !== confirmNewPassword) {
 
     bindTenantNotificationUI();
 
-            // ==========================================
+    // ==========================================
     // 5B. TENANT ACTIVITY TRACKING FOR PERSONALIZED BROWSE
     // ==========================================
     const browseSearchInput = document.getElementById('search-input');
     const browseTypeFilter = document.getElementById('filter-type');
     const browsePriceFilter = document.getElementById('filter-price');
     const browsePropertiesGrid = document.getElementById('properties-grid');
+
+    function normalizeText(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
 
     function getBudgetFromPriceFilter(value) {
         if (value === 'low') return 1000;
@@ -646,7 +650,7 @@ if (newPassword !== confirmNewPassword) {
 
             recordTenantActivity({
                 activity_type: 'filter_budget',
-                budget: budget
+                budget
             });
 
             setTimeout(personalizeBrowseRoomCards, 600);
@@ -655,7 +659,6 @@ if (newPassword !== confirmNewPassword) {
         document.addEventListener('click', (event) => {
             const propertyCard = event.target.closest('#properties-grid .property-card');
             const viewButton = event.target.closest('#properties-grid button, #properties-grid a');
-
             const sourceElement = viewButton || propertyCard;
 
             if (!sourceElement) return;
@@ -668,15 +671,14 @@ if (newPassword !== confirmNewPassword) {
 
             if (!propertyId) return;
 
-            const cardText = propertyCard?.innerText || '';
             const typeText = propertyCard?.querySelector('.property-type')?.innerText?.trim() || '';
 
-           recordTenantActivity({
-    activity_type: 'view_property',
-    property_id: propertyId,
-    property_type: typeText || null,
-    search_location: null
-});
+            recordTenantActivity({
+                activity_type: 'view_property',
+                property_id: propertyId,
+                property_type: typeText || null,
+                search_location: null
+            });
         }, true);
     }
 
@@ -704,8 +706,8 @@ if (newPassword !== confirmNewPassword) {
 
             (activities || []).forEach(activity => {
                 if (activity.activity_type === 'search_location' && activity.search_location) {
-    signals.searchedLocations.add(normalizeText(activity.search_location));
-}
+                    signals.searchedLocations.add(normalizeText(activity.search_location));
+                }
 
                 if (activity.property_type) {
                     signals.filteredTypes.add(normalizeText(activity.property_type));
@@ -847,7 +849,7 @@ if (newPassword !== confirmNewPassword) {
 
         const label = document.createElement('div');
         label.className = 'browse-ai-label';
-        label.innerHTML = `<i class="ph ph-sparkle"></i> Recommended for you`;
+        label.innerHTML = '<i class="ph ph-sparkle"></i> Recommended for you';
 
         label.style.position = 'absolute';
         label.style.top = '10px';
@@ -918,26 +920,26 @@ if (newPassword !== confirmNewPassword) {
 
             const seenPropertyCards = new Set();
 
-scoredCards.forEach(item => {
-    const propertyId =
-        item.card.getAttribute('data-id') ||
-        item.card.getAttribute('data-property-id');
+            scoredCards.forEach(item => {
+                const propertyId =
+                    item.card.getAttribute('data-id') ||
+                    item.card.getAttribute('data-property-id');
 
-    if (propertyId && seenPropertyCards.has(propertyId)) {
-        item.card.remove();
-        return;
-    }
+                if (propertyId && seenPropertyCards.has(propertyId)) {
+                    item.card.remove();
+                    return;
+                }
 
-    if (propertyId) {
-        seenPropertyCards.add(propertyId);
-    }
+                if (propertyId) {
+                    seenPropertyCards.add(propertyId);
+                }
 
-    if (item.score >= 55) {
-        addBrowseRecommendationLabel(item.card, item.score, item.reasons);
-    }
+                if (item.score >= 55) {
+                    addBrowseRecommendationLabel(item.card, item.score, item.reasons);
+                }
 
-    browsePropertiesGrid.appendChild(item.card);
-});
+                browsePropertiesGrid.appendChild(item.card);
+            });
         }, 250);
     }
 
@@ -1263,6 +1265,9 @@ scoredCards.forEach(item => {
                 .from('negotiations')
                 .select(`
                     id,
+                    tenant_id,
+                    landlord_id,
+                    property_id,
                     offer_amount,
                     status,
                     created_at,
@@ -1292,7 +1297,7 @@ scoredCards.forEach(item => {
                     )
                 `)
                 .eq('tenant_id', user.id)
-                .eq('status', 'Accepted')
+                .in('status', ['Accepted', 'accepted'])
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
@@ -1380,6 +1385,20 @@ scoredCards.forEach(item => {
                         </div>
 
                         <div style="display: flex; flex-direction: column; gap: 10px; min-width: 180px;">
+                            <button
+                                class="btn-primary pay-rent-btn"
+                                data-negotiation-id="${lease.id}"
+                                data-tenant-id="${lease.tenant_id}"
+                                data-landlord-id="${lease.landlord_id}"
+                                data-property-id="${lease.property_id}"
+                                data-amount="${Number(lease.offer_amount || property.price_ghs || 0)}"
+                                data-email="${currentUser?.email || ''}"
+                                data-property-title="${propertyTitle}"
+                                style="justify-content: center;"
+                            >
+                                <i class="ph ph-credit-card"></i> Pay Rent
+                            </button>
+
                             <button
                                 class="btn-outline open-chat-btn"
                                 data-id="${lease.id}"
@@ -1584,7 +1603,7 @@ scoredCards.forEach(item => {
                     )
                 `)
                 .eq('id', leaseId)
-                .eq('status', 'Accepted')
+                .in('status', ['Accepted', 'accepted'])
                 .single();
 
             if (error) throw error;
@@ -1609,6 +1628,432 @@ scoredCards.forEach(item => {
             printBtn.innerHTML = originalText;
         }
     });
+
+    // ==========================================
+    // 7B. PAYMENTS + BLOCKCHAIN LEDGER
+    // ==========================================
+    const paymentActiveLeaseCount = document.getElementById('payment-active-lease-count');
+    const paymentPaidCount = document.getElementById('payment-paid-count');
+    const paymentLedgerCount = document.getElementById('payment-ledger-count');
+    const tenantPaymentCard = document.getElementById('tenant-payment-card');
+    const tenantPaymentHistory = document.getElementById('tenant-payment-history');
+
+    function formatGhsAmount(value) {
+        return Number(value || 0).toLocaleString('en-GH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function formatPaymentDate(value) {
+        if (!value) return 'Not available';
+
+        return new Date(value).toLocaleDateString('en-GH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
+
+    function getPaymentStatusBadge(status) {
+        const cleanStatus = String(status || 'pending').toLowerCase();
+
+        let icon = 'ph-clock';
+
+        if (cleanStatus === 'paid') icon = 'ph-check-circle';
+        if (cleanStatus === 'failed' || cleanStatus === 'cancelled') icon = 'ph-warning-circle';
+
+        return `
+            <span class="payment-status ${cleanStatus}">
+                <i class="ph ${icon}"></i>
+                ${cleanStatus}
+            </span>
+        `;
+    }
+
+    async function loadTenantPayments() {
+        if (!tenantPaymentCard || !tenantPaymentHistory) return;
+
+        tenantPaymentCard.innerHTML = `
+            <div class="payment-empty-state">
+                <i class="ph ph-spinner ph-spin"></i>
+                <h4>Loading payment details</h4>
+                <p>Please wait while we check your accepted lease and payment records.</p>
+            </div>
+        `;
+
+        tenantPaymentHistory.innerHTML = `
+            <div class="payment-empty-state small">
+                <i class="ph ph-spinner ph-spin"></i>
+                <p>Loading payment history...</p>
+            </div>
+        `;
+
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+        if (authError || !user) {
+            tenantPaymentCard.innerHTML = `
+                <div class="payment-empty-state">
+                    <i class="ph ph-lock"></i>
+                    <h4>Login required</h4>
+                    <p>Please log in again to view and make rent payments.</p>
+                </div>
+            `;
+            return;
+        }
+
+        currentUser = user;
+
+        try {
+            const { data: acceptedLeases, error: leaseError } = await supabaseClient
+                .from('negotiations')
+                .select(`
+                    id,
+                    tenant_id,
+                    landlord_id,
+                    property_id,
+                    offer_amount,
+                    status,
+                    created_at,
+                    updated_at,
+                    properties (
+                        id,
+                        title,
+                        location,
+                        price_ghs,
+                        type,
+                        bedrooms,
+                        bathrooms,
+                        status
+                    ),
+                    landlord:users!landlord_id (
+                        full_name,
+                        email,
+                        phone,
+                        phone_number
+                    )
+                `)
+                .eq('tenant_id', user.id)
+                .in('status', ['Accepted', 'accepted'])
+                .order('updated_at', { ascending: false });
+
+            if (leaseError) throw leaseError;
+
+            const { data: payments, error: paymentError } = await supabaseClient
+                .from('payments')
+                .select(`
+                    id,
+                    tenant_id,
+                    landlord_id,
+                    property_id,
+                    negotiation_id,
+                    amount,
+                    currency,
+                    payment_status,
+                    payment_reference,
+                    payment_provider,
+                    payment_channel,
+                    receipt_url,
+                    paid_at,
+                    created_at,
+                    properties (
+                        title,
+                        location
+                    )
+                `)
+                .eq('tenant_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (paymentError) throw paymentError;
+
+            const landlordIds = [...new Set((payments || []).map(item => item.landlord_id).filter(Boolean))];
+
+            let landlordMap = {};
+
+            if (landlordIds.length > 0) {
+                const { data: landlordRows } = await supabaseClient
+                    .from('users')
+                    .select('id, full_name')
+                    .in('id', landlordIds);
+
+                landlordMap = (landlordRows || []).reduce((map, item) => {
+                    map[item.id] = item.full_name;
+                    return map;
+                }, {});
+            }
+
+            const { count: paidCount } = await supabaseClient
+                .from('payments')
+                .select('id', { count: 'exact', head: true })
+                .eq('tenant_id', user.id)
+                .eq('payment_status', 'paid');
+
+            const { count: ledgerCount } = await supabaseClient
+                .from('payment_ledger')
+                .select('id', { count: 'exact', head: true })
+                .eq('tenant_id', user.id);
+
+            if (paymentActiveLeaseCount) {
+                paymentActiveLeaseCount.innerText = String((acceptedLeases || []).length);
+            }
+
+            if (paymentPaidCount) {
+                paymentPaidCount.innerText = String(paidCount || 0);
+            }
+
+            if (paymentLedgerCount) {
+                paymentLedgerCount.innerText = String(ledgerCount || 0);
+            }
+
+            renderTenantPaymentCard(acceptedLeases || [], payments || [], user);
+            renderTenantPaymentHistory(payments || [], landlordMap);
+        } catch (error) {
+            console.error('Unable to load tenant payments:', error.message);
+
+            tenantPaymentCard.innerHTML = `
+                <div class="payment-empty-state">
+                    <i class="ph ph-warning-circle"></i>
+                    <h4>Unable to load payments</h4>
+                    <p>${error.message || 'Something went wrong while loading your payment records.'}</p>
+                </div>
+            `;
+
+            tenantPaymentHistory.innerHTML = `
+                <div class="payment-empty-state small">
+                    <i class="ph ph-warning-circle"></i>
+                    <p>Unable to load payment history.</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderTenantPaymentCard(acceptedLeases, payments, user) {
+        if (!tenantPaymentCard) return;
+
+        if (!acceptedLeases || acceptedLeases.length === 0) {
+            tenantPaymentCard.innerHTML = `
+                <div class="payment-empty-state">
+                    <i class="ph ph-hourglass-medium"></i>
+                    <h4>No accepted lease found</h4>
+                    <p>
+                        Once a landlord accepts your offer, the property, rent amount,
+                        landlord details, and secure Pay Rent button will appear here.
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        const lease = acceptedLeases[0];
+        const property = lease.properties || {};
+        const landlord = lease.landlord || {};
+
+        const propertyTitle = property.title || 'Rental Property';
+        const propertyLocation = property.location || 'Location not specified';
+        const landlordName = landlord.full_name || 'Landlord';
+        const landlordPhone = landlord.phone || landlord.phone_number || 'Not provided';
+        const amount = Number(lease.offer_amount || property.price_ghs || 0);
+
+        const existingPaidPayment = payments.find(payment =>
+            payment.negotiation_id === lease.id &&
+            String(payment.payment_status || '').toLowerCase() === 'paid'
+        );
+
+        const existingPendingPayment = payments.find(payment =>
+            payment.negotiation_id === lease.id &&
+            String(payment.payment_status || '').toLowerCase() === 'pending'
+        );
+
+        const acceptedDate = formatPaymentDate(lease.updated_at || lease.created_at);
+
+        tenantPaymentCard.innerHTML = `
+            <div class="lease-payment-details">
+                <div class="lease-payment-top">
+                    <div>
+                        <h4>${propertyTitle}</h4>
+                        <p><i class="ph ph-map-pin"></i> ${propertyLocation}</p>
+                    </div>
+
+                    <div class="payment-amount">
+                        <span>Agreed rent</span>
+                        <strong>GHS ${formatGhsAmount(amount)}</strong>
+                    </div>
+                </div>
+
+                <div class="payment-detail-grid">
+                    <div class="payment-detail-item">
+                        <span>Landlord</span>
+                        <strong>${landlordName}</strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <span>Contact</span>
+                        <strong>${landlordPhone}</strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <span>Accepted on</span>
+                        <strong>${acceptedDate}</strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <span>Payment status</span>
+                        <strong>${existingPaidPayment ? 'Paid' : existingPendingPayment ? 'Pending' : 'Not paid'}</strong>
+                    </div>
+                </div>
+
+                ${
+                    existingPaidPayment
+                        ? `
+                            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; padding: 14px; border-radius: 14px; font-weight: 700;">
+                                <i class="ph ph-check-circle"></i>
+                                This lease payment has been verified and secured in the blockchain ledger.
+                                <br>
+                                <small style="color: #065f46;">Reference: ${existingPaidPayment.payment_reference || 'N/A'}</small>
+                            </div>
+                        `
+                        : `
+                            <div class="payment-actions">
+                                <button
+                                    class="btn-primary pay-rent-btn"
+                                    data-negotiation-id="${lease.id}"
+                                    data-tenant-id="${lease.tenant_id}"
+                                    data-landlord-id="${lease.landlord_id}"
+                                    data-property-id="${lease.property_id}"
+                                    data-amount="${amount}"
+                                    data-email="${user.email || ''}"
+                                    data-property-title="${propertyTitle}"
+                                >
+                                    <i class="ph ph-credit-card"></i>
+                                    Pay Rent Securely
+                                </button>
+
+                                <button
+                                    class="btn-outline"
+                                    type="button"
+                                    onclick="document.querySelector('.nav-item[data-target=\\'lease\\']')?.click()"
+                                >
+                                    <i class="ph ph-file-text"></i>
+                                    View Lease
+                                </button>
+                            </div>
+
+                            <p style="font-size: 0.82rem; color: #64748b; margin: 0;">
+                                You will be redirected to Paystack checkout. RentHaven will verify the payment and create a blockchain ledger block after success.
+                            </p>
+                        `
+                }
+            </div>
+        `;
+    }
+
+    function renderTenantPaymentHistory(payments, landlordMap = {}) {
+        if (!tenantPaymentHistory) return;
+
+        if (!payments || payments.length === 0) {
+            tenantPaymentHistory.innerHTML = `
+                <div class="payment-empty-state small">
+                    <i class="ph ph-receipt"></i>
+                    <p>No payment history yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        tenantPaymentHistory.innerHTML = payments.map(payment => {
+            const propertyTitle = payment.properties?.title || 'Rental Payment';
+            const propertyLocation = payment.properties?.location || 'Location not specified';
+            const landlordName = landlordMap[payment.landlord_id] || 'Landlord';
+            const reference = payment.payment_reference || 'No reference';
+            const dateValue = payment.paid_at || payment.created_at;
+
+            return `
+                <div class="payment-history-item">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div>
+                            <h4>${propertyTitle}</h4>
+                            <p><i class="ph ph-map-pin"></i> ${propertyLocation}</p>
+                            <p>Landlord: <strong>${landlordName}</strong></p>
+                        </div>
+
+                        ${getPaymentStatusBadge(payment.payment_status)}
+                    </div>
+
+                    <p>Amount: <strong>GHS ${formatGhsAmount(payment.amount)}</strong></p>
+                    <p>Reference: <strong>${reference}</strong></p>
+                    <p>Date: ${formatPaymentDate(dateValue)}</p>
+
+                    ${
+                        payment.receipt_url
+                            ? `<a href="${payment.receipt_url}" target="_blank" rel="noopener" class="btn-outline" style="margin-top: 8px; display: inline-flex;">View Receipt</a>`
+                            : ''
+                    }
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function startTenantRentPayment(button) {
+        if (!button) return;
+
+        const originalText = button.innerHTML;
+
+        button.disabled = true;
+        button.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Starting payment...';
+
+        try {
+            const paymentPayload = {
+                tenant_id: button.getAttribute('data-tenant-id'),
+                landlord_id: button.getAttribute('data-landlord-id'),
+                property_id: button.getAttribute('data-property-id'),
+                negotiation_id: button.getAttribute('data-negotiation-id'),
+                email: button.getAttribute('data-email'),
+                amount: Number(button.getAttribute('data-amount') || 0),
+                property_title: button.getAttribute('data-property-title') || 'Rental Property'
+            };
+
+            if (
+                !paymentPayload.tenant_id ||
+                !paymentPayload.landlord_id ||
+                !paymentPayload.property_id ||
+                !paymentPayload.email ||
+                !paymentPayload.amount
+            ) {
+                throw new Error('Missing payment details. Please refresh the page and try again.');
+            }
+
+            const response = await fetch('/.netlify/functions/initialize-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(paymentPayload)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.authorization_url) {
+                throw new Error(result.error || result.details?.message || 'Unable to start payment.');
+            }
+
+            window.location.href = result.authorization_url;
+        } catch (error) {
+            alert('Payment could not start: ' + error.message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const payBtn = event.target.closest('.pay-rent-btn');
+
+        if (!payBtn) return;
+
+        event.preventDefault();
+        startTenantRentPayment(payBtn);
+    });
+
+    window.loadTenantPayments = loadTenantPayments;
 
     // ==========================================
     // 8. TENANT SAVED SPACES
@@ -1804,13 +2249,13 @@ scoredCards.forEach(item => {
             const propertyId = viewBtn.getAttribute('data-id');
 
             if (propertyId) {
-    recordTenantActivity({
-        activity_type: 'view_property',
-        property_id: propertyId
-    });
+                recordTenantActivity({
+                    activity_type: 'view_property',
+                    property_id: propertyId
+                });
 
-    window.location.href = `property-details.html?id=${propertyId}`;
-}
+                window.location.href = `property-details.html?id=${propertyId}`;
+            }
 
             return;
         }
@@ -1875,14 +2320,6 @@ scoredCards.forEach(item => {
     const refreshRecommendationsBtn = document.getElementById('refresh-recommendations-btn');
     const aiSummaryCard = document.getElementById('ai-summary-card');
     const aiSummaryText = document.getElementById('ai-summary-text');
-
-    function normalizeText(value) {
-        return String(value || '')
-            .toLowerCase()
-            .replace(/[^\w\s]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
 
     function tokenize(value) {
         return normalizeText(value)
@@ -2236,7 +2673,7 @@ scoredCards.forEach(item => {
                 `The system analyzed ${recommendations.length} top available listing(s) using your selected preferences` +
                 `${savedSignalsCount > 0 ? ', saved spaces' : ''}` +
                 `${negotiationSignalsCount > 0 ? ', and negotiation history' : ''}. ` +
-                `Higher scores mean the property is closer to your preferred location, type, budget, and previous activity.`;
+                'Higher scores mean the property is closer to your preferred location, type, budget, and previous activity.';
         }
 
         smartRecommendationsGrid.innerHTML = recommendations.map(property => {
@@ -2332,13 +2769,12 @@ scoredCards.forEach(item => {
 
             const propertyId = aiViewBtn.getAttribute('data-id');
 
-           recordTenantActivity({
-    activity_type: 'view_property',
-    property_id: propertyId
-});
+            recordTenantActivity({
+                activity_type: 'view_property',
+                property_id: propertyId
+            });
 
-window.location.href = `property-details.html?id=${propertyId}`;
-
+            window.location.href = `property-details.html?id=${propertyId}`;
             return;
         }
 
@@ -2346,27 +2782,30 @@ window.location.href = `property-details.html?id=${propertyId}`;
             const propertyId = aiCard.getAttribute('data-id');
 
             if (propertyId) {
+                recordTenantActivity({
+                    activity_type: 'view_property',
+                    property_id: propertyId
+                });
+
                 window.location.href = `property-details.html?id=${propertyId}`;
             }
         }
     });
 
-    if (generateAiMatchBtn) {
-        generateAiMatchBtn.addEventListener('click', loadSmartRecommendations);
-    }
-
-    if (refreshRecommendationsBtn) {
-        refreshRecommendationsBtn.addEventListener('click', loadSmartRecommendations);
-    }
+    generateAiMatchBtn?.addEventListener('click', loadSmartRecommendations);
+    refreshRecommendationsBtn?.addEventListener('click', loadSmartRecommendations);
 
     window.loadSmartRecommendations = loadSmartRecommendations;
     window.loadTenantNotifications = loadTenantNotifications;
+    window.loadTenantLeases = loadTenantLeases;
+    window.loadNegotiations = loadNegotiations;
 
     // ==========================================
     // INITIAL LOAD
     // ==========================================
     loadNegotiations();
     loadTenantLeases();
+    loadTenantPayments();
     loadSavedProperties();
     loadTenantNotifications();
 

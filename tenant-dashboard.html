@@ -335,14 +335,85 @@
                     <div class="view-header">
                         <div>
                             <h1>Payments</h1>
-                            <p class="text-muted">Track your rent payments and download receipts.</p>
+                            <p class="text-muted">
+                                Pay accepted rent offers safely and keep every successful transaction secured in a blockchain-style ledger.
+                            </p>
+                        </div>
+
+                        <span class="secure-badge">
+                            <i class="ph ph-shield-check"></i>
+                            Blockchain secured
+                        </span>
+                    </div>
+
+                    <div class="payment-overview-grid">
+                        <div class="payment-summary-card">
+                            <div class="payment-summary-icon">
+                                <i class="ph ph-house-line"></i>
+                            </div>
+                            <div>
+                                <p>Active Lease</p>
+                                <h3 id="payment-active-lease-count">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="payment-summary-card">
+                            <div class="payment-summary-icon">
+                                <i class="ph ph-check-circle"></i>
+                            </div>
+                            <div>
+                                <p>Paid Transactions</p>
+                                <h3 id="payment-paid-count">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="payment-summary-card">
+                            <div class="payment-summary-icon">
+                                <i class="ph ph-link-simple-horizontal"></i>
+                            </div>
+                            <div>
+                                <p>Ledger Blocks</p>
+                                <h3 id="payment-ledger-count">0</h3>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="empty-state">
-                        <i class="ph ph-receipt"></i>
-                        <h3>No Payment History</h3>
-                        <p>Your payment records, upcoming due dates, and receipts will be tracked here once you sign a lease.</p>
+
+                    <div class="payment-layout">
+                        <div class="payment-panel">
+                            <div class="panel-title-row">
+                                <div>
+                                    <h3>Accepted Lease Payment</h3>
+                                    <p>When a landlord accepts your offer, the rent payment details will appear here.</p>
+                                </div>
+                            </div>
+
+                            <div id="tenant-payment-card" class="tenant-payment-card">
+                                <div class="payment-empty-state">
+                                    <i class="ph ph-hourglass-medium"></i>
+                                    <h4>No accepted lease found</h4>
+                                    <p>
+                                        Once a landlord accepts your offer, the system will show the property, rent amount,
+                                        landlord details, and a secure Pay Rent button here.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="payment-panel">
+                            <div class="panel-title-row">
+                                <div>
+                                    <h3>Payment History</h3>
+                                    <p>Recent rent payments connected to your account.</p>
+                                </div>
+                            </div>
+
+                            <div id="tenant-payment-history" class="payment-history-list">
+                                <div class="payment-empty-state small">
+                                    <i class="ph ph-receipt"></i>
+                                    <p>No payment history yet.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -563,6 +634,253 @@
             align-items: center;
         }
 
+        /* ================================
+           TENANT PAYMENTS SECTION
+        ================================ */
+
+        .payment-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .payment-summary-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+        }
+
+        .payment-summary-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            background: #ccfbf1;
+            color: #0f766e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.45rem;
+        }
+
+        .payment-summary-card p {
+            margin: 0 0 4px;
+            color: #64748b;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .payment-summary-card h3 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.4rem;
+        }
+
+        .payment-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .payment-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+        }
+
+        .panel-title-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .panel-title-row h3 {
+            margin: 0 0 6px;
+            color: #0f172a;
+        }
+
+        .panel-title-row p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .secure-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            padding: 7px 10px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .tenant-payment-card {
+            border-radius: 18px;
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            padding: 18px;
+        }
+
+        .payment-empty-state {
+            text-align: center;
+            padding: 28px 16px;
+            color: #64748b;
+        }
+
+        .payment-empty-state i {
+            font-size: 2.4rem;
+            color: #0f766e;
+            margin-bottom: 8px;
+        }
+
+        .payment-empty-state h4 {
+            margin: 6px 0;
+            color: #0f172a;
+        }
+
+        .payment-empty-state p {
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .payment-empty-state.small {
+            padding: 20px 12px;
+        }
+
+        .lease-payment-details {
+            display: grid;
+            gap: 14px;
+        }
+
+        .lease-payment-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .lease-payment-top h4 {
+            margin: 0 0 6px;
+            color: #0f172a;
+            font-size: 1.1rem;
+        }
+
+        .lease-payment-top p {
+            margin: 0;
+            color: #64748b;
+        }
+
+        .payment-amount {
+            text-align: right;
+        }
+
+        .payment-amount span {
+            display: block;
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .payment-amount strong {
+            color: #0f766e;
+            font-size: 1.4rem;
+        }
+
+        .payment-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .payment-detail-item {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .payment-detail-item span {
+            display: block;
+            color: #64748b;
+            font-size: 0.76rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .payment-detail-item strong {
+            color: #0f172a;
+            font-size: 0.92rem;
+        }
+
+        .payment-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .payment-history-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            background: #ffffff;
+        }
+
+        .payment-history-item h4 {
+            margin: 0 0 6px;
+            font-size: 0.98rem;
+            color: #0f172a;
+        }
+
+        .payment-history-item p {
+            margin: 0 0 6px;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .payment-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: 0.73rem;
+            font-weight: 800;
+            text-transform: capitalize;
+        }
+
+        .payment-status.paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .payment-status.pending {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .payment-status.failed,
+        .payment-status.cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         #ai-chatbot-widget {
             position: fixed;
             right: 22px;
@@ -769,6 +1087,21 @@
             justify-content: center;
         }
 
+        @media screen and (max-width: 900px) {
+            .payment-overview-grid,
+            .payment-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .lease-payment-top {
+                flex-direction: column;
+            }
+
+            .payment-amount {
+                text-align: left;
+            }
+        }
+
         @media screen and (max-width: 640px) {
             #ai-chatbot-widget {
                 right: 14px;
@@ -785,6 +1118,16 @@
                 bottom: 68px;
                 width: calc(100vw - 24px);
                 height: 72vh;
+            }
+        }
+
+        @media screen and (max-width: 560px) {
+            .payment-detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-title-row {
+                flex-direction: column;
             }
         }
     </style>
