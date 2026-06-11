@@ -6,7 +6,7 @@
     <title>Admin Dashboard | RentHaven Ghana</title>
 
     <link rel="stylesheet" href="css/styles.css">
-<link rel="icon" type="image/png" href="images/renthaven-logo.png">
+    <link rel="icon" type="image/png" href="images/renthaven-logo.png">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -136,6 +136,201 @@
             margin: 4px 0;
         }
 
+        .ledger-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .ledger-summary-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .ledger-summary-card .ledger-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0f2fe;
+            color: #0d8abc;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .ledger-summary-card span {
+            display: block;
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .ledger-summary-card h3 {
+            margin: 0;
+            font-size: 1.7rem;
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .ledger-health-card {
+            background: linear-gradient(135deg, #0f172a, #0d8abc);
+            color: #ffffff;
+            border-radius: 18px;
+            padding: 22px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 18px 40px rgba(13, 138, 188, 0.2);
+        }
+
+        .ledger-health-card h3 {
+            margin: 0 0 6px 0;
+            font-size: 1.2rem;
+        }
+
+        .ledger-health-card p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .ledger-validity-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border-radius: 999px;
+            padding: 9px 14px;
+            font-weight: 800;
+            font-size: 0.82rem;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            white-space: nowrap;
+        }
+
+        .ledger-validity-badge.valid {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #047857;
+        }
+
+        .ledger-validity-badge.broken {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+
+        .ledger-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+            margin-bottom: 22px;
+        }
+
+        .ledger-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .ledger-panel-header h3 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.05rem;
+            font-weight: 800;
+        }
+
+        .ledger-panel-header p {
+            margin: 4px 0 0 0;
+            color: #64748b;
+            font-size: 0.86rem;
+        }
+
+        .ledger-table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .ledger-table {
+            width: 100%;
+            min-width: 980px;
+            border-collapse: collapse;
+            background: #ffffff;
+        }
+
+        .ledger-table th {
+            background: #f8fafc;
+            color: #475569;
+            text-align: left;
+            font-size: 0.78rem;
+            padding: 13px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .ledger-table td {
+            padding: 13px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            font-size: 0.86rem;
+            vertical-align: top;
+        }
+
+        .ledger-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .ledger-reference {
+            font-weight: 800;
+            color: #0d8abc;
+            white-space: nowrap;
+        }
+
+        .hash-cell {
+            max-width: 230px;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 0.78rem;
+            color: #475569;
+            word-break: break-all;
+        }
+
+        .ledger-empty-state {
+            padding: 34px 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .ledger-empty-state i {
+            font-size: 2.2rem;
+            color: #94a3b8;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .ledger-empty-state h3 {
+            margin: 0 0 6px 0;
+            color: #0f172a;
+            font-size: 1rem;
+        }
+
         @media print {
             body {
                 background: #ffffff !important;
@@ -234,6 +429,10 @@
 
                 <a href="#" class="nav-item" data-target="leases">
                     <i class="ph ph-file-text"></i> Active Leases
+                </a>
+
+                <a href="#" class="nav-item" data-target="payment-ledger">
+                    <i class="ph ph-link-simple-horizontal"></i> Payment Ledger
                 </a>
 
                 <a href="#" class="nav-item" data-target="reports">
@@ -479,6 +678,144 @@
                     </div>
                 </section>
 
+                <section id="payment-ledger" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Payment Ledger</h1>
+                            <p class="text-muted">
+                                Review verified rent payments and inspect the blockchain-style ledger hashes.
+                            </p>
+                        </div>
+
+                        <button class="btn-primary" id="verify-ledger-btn" type="button">
+                            <i class="ph ph-shield-check"></i> Verify Ledger
+                        </button>
+                    </div>
+
+                    <div class="ledger-summary-grid">
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-receipt"></i>
+                            </div>
+                            <span>Paid Transactions</span>
+                            <h3 id="admin-paid-payments-count">0</h3>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-link-simple-horizontal"></i>
+                            </div>
+                            <span>Ledger Blocks</span>
+                            <h3 id="admin-ledger-blocks-count">0</h3>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-currency-circle-dollar"></i>
+                            </div>
+                            <span>Total Paid Amount</span>
+                            <h3 id="admin-total-paid-amount">GHS 0.00</h3>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-shield-check"></i>
+                            </div>
+                            <span>Ledger Status</span>
+                            <h3 id="admin-ledger-status-text">Checking</h3>
+                        </div>
+                    </div>
+
+                    <div class="ledger-health-card">
+                        <div>
+                            <h3>Blockchain Integrity Check</h3>
+                            <p>
+                                Each successful rent payment is stored as a ledger block. The previous hash and
+                                current hash help detect silent changes in the payment history.
+                            </p>
+                        </div>
+
+                        <span id="admin-ledger-validity-badge" class="ledger-validity-badge">
+                            <i class="ph ph-spinner ph-spin"></i> Waiting for check
+                        </span>
+                    </div>
+
+                    <div class="ledger-panel">
+                        <div class="ledger-panel-header">
+                            <div>
+                                <h3>Verified Payment Blocks</h3>
+                                <p>Paid rent transactions linked with blockchain-style hashes.</p>
+                            </div>
+
+                            <button class="btn-outline" id="refresh-ledger-btn" type="button">
+                                <i class="ph ph-arrows-clockwise"></i> Refresh Ledger
+                            </button>
+                        </div>
+
+                        <div class="ledger-table-wrapper">
+                            <table class="ledger-table">
+                                <thead>
+                                    <tr>
+                                        <th>Block</th>
+                                        <th>Reference</th>
+                                        <th>Amount</th>
+                                        <th>Tenant</th>
+                                        <th>Landlord</th>
+                                        <th>Property</th>
+                                        <th>Previous Hash</th>
+                                        <th>Current Hash</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-payment-ledger-body">
+                                    <tr>
+                                        <td colspan="9">
+                                            <div class="ledger-empty-state">
+                                                <i class="ph ph-spinner ph-spin"></i>
+                                                <h3>Loading payment ledger</h3>
+                                                <p>Please wait while the system retrieves blockchain ledger records.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="ledger-panel">
+                        <div class="ledger-panel-header">
+                            <div>
+                                <h3>Ledger Verification Results</h3>
+                                <p>Shows whether every block points correctly to the previous block.</p>
+                            </div>
+                        </div>
+
+                        <div class="ledger-table-wrapper">
+                            <table class="ledger-table">
+                                <thead>
+                                    <tr>
+                                        <th>Block</th>
+                                        <th>Reference</th>
+                                        <th>Status</th>
+                                        <th>Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-ledger-verification-body">
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="ledger-empty-state">
+                                                <i class="ph ph-shield-check"></i>
+                                                <h3>No verification run yet</h3>
+                                                <p>Click Verify Ledger to inspect the blockchain links.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="reports" class="view-section">
                     <div class="view-header no-print">
                         <div>
@@ -620,6 +957,6 @@
     </div>
 
     <script src="js/supabase-config.js"></script>
-    <script src="js/admin.js"></script>
+    <script src="js/admin.js?v=ledger1"></script>
 </body>
 </html>

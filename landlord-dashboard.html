@@ -43,6 +43,10 @@
                 <a href="#" class="nav-item" data-target="leases">
                     <i class="ph ph-file-text"></i> Active Leases
                 </a>
+
+                <a href="#" class="nav-item" data-target="received-payments">
+                    <i class="ph ph-receipt"></i> Received Payments
+                </a>
             </nav>
         </aside>
 
@@ -158,7 +162,7 @@
                     <div class="view-header">
                         <div>
                             <h1 id="welcome-message">Welcome Back</h1>
-                            <p class="text-muted">Monitor your property listings, offers, and active leases.</p>
+                            <p class="text-muted">Monitor your property listings, offers, active leases, and rent payments.</p>
                         </div>
                     </div>
 
@@ -194,6 +198,17 @@
                             <div>
                                 <h3 style="margin: 0; font-size: 1.75rem; font-weight: 700;" id="stat-active-leases">0</h3>
                                 <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.9rem;">Occupied Spaces</p>
+                            </div>
+                        </div>
+
+                        <div class="property-card" style="padding: 24px; display: flex; align-items: center; gap: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="background: #f0f9ff; color: #0d8abc; padding: 16px; border-radius: 12px; font-size: 2rem; display: flex; align-items: center; justify-content: center;">
+                                <i class="ph ph-currency-circle-dollar"></i>
+                            </div>
+
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.75rem; font-weight: 700;" id="stat-total-received">GHS 0.00</h3>
+                                <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.9rem;">Rent Received</p>
                             </div>
                         </div>
 
@@ -235,6 +250,84 @@
                     </div>
 
                     <div class="list-container" id="active-leases-list"></div>
+                </section>
+
+                <section id="received-payments" class="view-section">
+                    <div class="view-header">
+                        <div>
+                            <h1>Received Payments</h1>
+                            <p class="text-muted">
+                                View successful rent payments received from tenants for your listed properties.
+                            </p>
+                        </div>
+
+                        <button class="btn-outline" id="refresh-landlord-payments-btn" type="button">
+                            <i class="ph ph-arrows-clockwise"></i> Refresh Payments
+                        </button>
+                    </div>
+
+                    <div class="landlord-payment-summary-grid">
+                        <div class="landlord-payment-summary-card">
+                            <div class="landlord-payment-icon">
+                                <i class="ph ph-wallet"></i>
+                            </div>
+                            <span>Total Received</span>
+                            <h3 id="landlord-total-received">GHS 0.00</h3>
+                        </div>
+
+                        <div class="landlord-payment-summary-card">
+                            <div class="landlord-payment-icon">
+                                <i class="ph ph-receipt"></i>
+                            </div>
+                            <span>Paid Transactions</span>
+                            <h3 id="landlord-paid-count">0</h3>
+                        </div>
+
+                        <div class="landlord-payment-summary-card">
+                            <div class="landlord-payment-icon">
+                                <i class="ph ph-buildings"></i>
+                            </div>
+                            <span>Paid Properties</span>
+                            <h3 id="landlord-paid-properties-count">0</h3>
+                        </div>
+                    </div>
+
+                    <div class="landlord-payments-panel">
+                        <div class="landlord-payments-panel-header">
+                            <div>
+                                <h3>Payment History</h3>
+                                <p>Confirmed payments linked to your properties.</p>
+                            </div>
+                        </div>
+
+                        <div class="landlord-payments-table-wrapper">
+                            <table class="landlord-payments-table">
+                                <thead>
+                                    <tr>
+                                        <th>Reference</th>
+                                        <th>Tenant</th>
+                                        <th>Property</th>
+                                        <th>Amount</th>
+                                        <th>Channel</th>
+                                        <th>Status</th>
+                                        <th>Date Paid</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="landlord-payments-body">
+                                    <tr>
+                                        <td colspan="7">
+                                            <div class="landlord-payment-empty">
+                                                <i class="ph ph-spinner ph-spin"></i>
+                                                <h3>Loading payments</h3>
+                                                <p>Please wait while your received payments are being loaded.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="profile" class="view-section">
@@ -646,9 +739,134 @@
             font-size: 0.75rem;
             margin-top: 2px;
         }
+
+        .landlord-payment-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .landlord-payment-summary-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .landlord-payment-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0f2fe;
+            color: #0d8abc;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .landlord-payment-summary-card span {
+            display: block;
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .landlord-payment-summary-card h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .landlord-payments-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .landlord-payments-panel-header {
+            margin-bottom: 14px;
+        }
+
+        .landlord-payments-panel-header h3 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.05rem;
+            font-weight: 800;
+        }
+
+        .landlord-payments-panel-header p {
+            margin: 4px 0 0 0;
+            color: #64748b;
+            font-size: 0.86rem;
+        }
+
+        .landlord-payments-table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .landlord-payments-table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+            background: #ffffff;
+        }
+
+        .landlord-payments-table th {
+            background: #f8fafc;
+            color: #475569;
+            text-align: left;
+            font-size: 0.78rem;
+            padding: 13px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .landlord-payments-table td {
+            padding: 13px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            font-size: 0.86rem;
+            vertical-align: top;
+        }
+
+        .landlord-payment-reference {
+            font-weight: 800;
+            color: #0d8abc;
+            white-space: nowrap;
+        }
+
+        .landlord-payment-empty {
+            padding: 34px 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .landlord-payment-empty i {
+            font-size: 2.2rem;
+            color: #94a3b8;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .landlord-payment-empty h3 {
+            margin: 0 0 6px 0;
+            color: #0f172a;
+            font-size: 1rem;
+        }
     </style>
 
     <script src="js/supabase-config.js"></script>
-    <script src="js/landlord.js"></script>
+    <script src="js/landlord.js?v=payments1"></script>
 </body>
 </html>

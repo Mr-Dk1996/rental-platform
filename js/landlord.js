@@ -55,6 +55,9 @@
     const profileMenuLogout = document.getElementById('profile-menu-logout');
     const updateEmailBtn = document.getElementById('update-email-btn');
 
+    const landlordPaymentsBody = document.getElementById('landlord-payments-body');
+    const refreshLandlordPaymentsBtn = document.getElementById('refresh-landlord-payments-btn');
+
     document.addEventListener('DOMContentLoaded', () => {
         bindNavigation();
         bindLogout();
@@ -62,6 +65,7 @@
         bindEmailUpdate();
         bindPropertyModal();
         bindNotificationUI();
+        bindLandlordPaymentActions();
         initLandlordPortal();
     });
 
@@ -76,23 +80,29 @@
             item.addEventListener('click', (e) => {
                 e.preventDefault();
 
+                const target = item.getAttribute('data-target');
+
                 navItems.forEach(nav => nav.classList.remove('active'));
                 views.forEach(view => view.classList.remove('active-view'));
 
                 item.classList.add('active');
 
-                const targetView = document.getElementById(item.getAttribute('data-target'));
+                const targetView = document.getElementById(target);
 
                 if (targetView) {
                     targetView.classList.add('active-view');
                 }
 
-                if (item.getAttribute('data-target') === 'listings') {
+                if (target === 'listings') {
                     loadLandlordProperties();
                 }
 
-                if (item.getAttribute('data-target') === 'offers' || item.getAttribute('data-target') === 'leases') {
+                if (target === 'offers' || target === 'leases') {
                     loadIncomingOffers();
+                }
+
+                if (target === 'received-payments') {
+                    loadLandlordReceivedPayments();
                 }
             });
         });
@@ -109,6 +119,10 @@
         views.forEach(view => {
             view.classList.toggle('active-view', view.id === sectionId);
         });
+
+        if (sectionId === 'received-payments') {
+            loadLandlordReceivedPayments();
+        }
 
         if (focusElementId) {
             setTimeout(() => {
@@ -199,6 +213,7 @@
             await loadOverviewMetrics();
             await loadLandlordProperties();
             await loadIncomingOffers();
+            await loadLandlordReceivedPayments(false);
             await loadLandlordNotifications();
         } catch (err) {
             console.error('Dashboard initialization failed:', err.message);
@@ -278,16 +293,59 @@
                 .eq('landlord_id', currentUser.id)
                 .eq('status', 'Accepted');
 
+            const { data: paidPayments, error: paidError } = await supabaseClient
+                .from('payments')
+                .select('amount')
+                .eq('landlord_id', currentUser.id)
+                .eq('payment_status', 'paid');
+
+            if (paidError) throw paidError;
+
+            const totalReceived = (paidPayments || []).reduce((sum, payment) => {
+                return sum + Number(payment.amount || 0);
+            }, 0);
+
             const totalPropEl = document.getElementById('stat-total-properties');
             const pendOfferEl = document.getElementById('stat-pending-offers');
             const activeLeaseEl = document.getElementById('stat-active-leases');
+            const totalReceivedEl = document.getElementById('stat-total-received');
 
             if (totalPropEl) totalPropEl.innerText = countProp || 0;
             if (pendOfferEl) pendOfferEl.innerText = countPending || 0;
             if (activeLeaseEl) activeLeaseEl.innerText = countActive || 0;
+            if (totalReceivedEl) totalReceivedEl.innerText = `GHS ${formatMoney(totalReceived)}`;
         } catch (err) {
             console.error('Metrics loading error:', err.message);
         }
+    }
+
+    function formatMoney(value) {
+        return Number(value || 0).toLocaleString('en-GH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function formatDateTime(value) {
+        if (!value) return 'Not available';
+
+        return new Date(value).toLocaleString('en-GH', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getPaymentChannelLabel(channel) {
+        const cleanChannel = String(channel || '').trim();
+
+        if (!cleanChannel) return 'Not recorded';
+
+        return cleanChannel
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, letter => letter.toUpperCase());
     }
 
     // ==========================================
@@ -1341,6 +1399,7 @@
             await loadOverviewMetrics();
             await loadLandlordProperties();
             await loadIncomingOffers();
+            await loadLandlordReceivedPayments(false);
             await loadLandlordNotifications();
 
             alert(isAccepting
@@ -1356,7 +1415,223 @@
     });
 
     // ==========================================
-    // 10. CHAT
+    // 10. RECEIVED PAYMENTS
+    // ==========================================
+    function bindLandlordPaymentActions() {
+        refreshLandlordPaymentsBtn?.addEventListener('click', async () => {
+            const originalText = refreshLandlordPaymentsBtn.innerHTML;
+
+            refreshLandlordPaymentsBtn.disabled = true;
+            refreshLandlordPaymentsBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Refreshing...';
+
+            try {
+                await loadLandlordReceivedPayments();
+            } catch (err) {
+                alert('Unable to refresh payments: ' + err.message);
+            } finally {
+                refreshLandlordPaymentsBtn.disabled = false;
+                refreshLandlordPaymentsBtn.innerHTML = originalText;
+            }
+        });
+    }
+
+    function updateLandlordPaymentSummary(payments) {
+        const paymentRows = payments || [];
+
+        const totalReceived = paymentRows.reduce((sum, payment) => {
+            return sum + Number(payment.amount || 0);
+        }, 0);
+
+        const uniquePaidProperties = new Set(
+            paymentRows
+                .map(payment => payment.property_id)
+                .filter(Boolean)
+        );
+
+        const statTotalReceived = document.getElementById('stat-total-received');
+        const landlordTotalReceived = document.getElementById('landlord-total-received');
+        const landlordPaidCount = document.getElementById('landlord-paid-count');
+        const landlordPaidPropertiesCount = document.getElementById('landlord-paid-properties-count');
+
+        if (statTotalReceived) statTotalReceived.innerText = `GHS ${formatMoney(totalReceived)}`;
+        if (landlordTotalReceived) landlordTotalReceived.innerText = `GHS ${formatMoney(totalReceived)}`;
+        if (landlordPaidCount) landlordPaidCount.innerText = paymentRows.length;
+        if (landlordPaidPropertiesCount) landlordPaidPropertiesCount.innerText = uniquePaidProperties.size;
+    }
+
+    async function loadLandlordReceivedPayments(showLoading = true) {
+        if (!currentUser) return;
+
+        if (showLoading && landlordPaymentsBody) {
+            landlordPaymentsBody.innerHTML = `
+                <tr>
+                    <td colspan="7">
+                        <div class="landlord-payment-empty">
+                            <i class="ph ph-spinner ph-spin"></i>
+                            <h3>Loading payments</h3>
+                            <p>Please wait while your received payments are being loaded.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const { data: paymentRows, error: paymentError } = await supabaseClient
+                .from('payments')
+                .select(`
+                    id,
+                    tenant_id,
+                    landlord_id,
+                    property_id,
+                    negotiation_id,
+                    amount,
+                    currency,
+                    payment_status,
+                    payment_reference,
+                    payment_provider,
+                    payment_channel,
+                    receipt_url,
+                    paid_at,
+                    created_at
+                `)
+                .eq('landlord_id', currentUser.id)
+                .eq('payment_status', 'paid')
+                .order('paid_at', { ascending: false });
+
+            if (paymentError) throw paymentError;
+
+            const payments = paymentRows || [];
+
+            updateLandlordPaymentSummary(payments);
+
+            if (!landlordPaymentsBody) return;
+
+            if (payments.length === 0) {
+                landlordPaymentsBody.innerHTML = `
+                    <tr>
+                        <td colspan="7">
+                            <div class="landlord-payment-empty">
+                                <i class="ph ph-receipt"></i>
+                                <h3>No Received Payments Yet</h3>
+                                <p>Successful rent payments from tenants will appear here after Paystack verification.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const tenantIds = [...new Set(payments.map(payment => payment.tenant_id).filter(Boolean))];
+            const propertyIds = [...new Set(payments.map(payment => payment.property_id).filter(Boolean))];
+
+            let tenantMap = {};
+            let propertyMap = {};
+
+            if (tenantIds.length > 0) {
+                const { data: tenantRows, error: tenantError } = await supabaseClient
+                    .from('users')
+                    .select('id, full_name, phone, phone_number, email')
+                    .in('id', tenantIds);
+
+                if (tenantError) throw tenantError;
+
+                tenantMap = (tenantRows || []).reduce((map, tenant) => {
+                    map[tenant.id] = tenant;
+                    return map;
+                }, {});
+            }
+
+            if (propertyIds.length > 0) {
+                const { data: propertyRows, error: propertyError } = await supabaseClient
+                    .from('properties')
+                    .select('id, title, location')
+                    .in('id', propertyIds);
+
+                if (propertyError) throw propertyError;
+
+                propertyMap = (propertyRows || []).reduce((map, property) => {
+                    map[property.id] = property;
+                    return map;
+                }, {});
+            }
+
+            landlordPaymentsBody.innerHTML = payments.map(payment => {
+                const tenant = tenantMap[payment.tenant_id];
+                const property = propertyMap[payment.property_id];
+
+                const tenantName = tenant?.full_name || 'Tenant';
+                const propertyTitle = property?.title || 'Property';
+                const propertyLocation = property?.location || 'Location not available';
+                const channel = getPaymentChannelLabel(payment.payment_channel);
+                const datePaid = formatDateTime(payment.paid_at || payment.created_at);
+                const statusClass = payment.payment_status === 'paid' ? 'status-accepted' : 'status-pending';
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="landlord-payment-reference">
+                                ${payment.payment_reference || 'N/A'}
+                            </span>
+                        </td>
+
+                        <td>
+                            <strong>${tenantName}</strong>
+                            ${tenant?.phone || tenant?.phone_number ? `
+                                <br>
+                                <span style="font-size:0.78rem; color:#64748b;">
+                                    ${tenant.phone || tenant.phone_number}
+                                </span>
+                            ` : ''}
+                        </td>
+
+                        <td>
+                            <strong>${propertyTitle}</strong>
+                            <br>
+                            <span style="font-size:0.78rem; color:#64748b;">
+                                ${propertyLocation}
+                            </span>
+                        </td>
+
+                        <td>
+                            <strong>GHS ${formatMoney(payment.amount)}</strong>
+                        </td>
+
+                        <td>${channel}</td>
+
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                ${payment.payment_status || 'paid'}
+                            </span>
+                        </td>
+
+                        <td>${datePaid}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            console.error('Received payments loading error:', err);
+
+            updateLandlordPaymentSummary([]);
+
+            if (landlordPaymentsBody) {
+                landlordPaymentsBody.innerHTML = `
+                    <tr>
+                        <td colspan="7">
+                            <div class="landlord-payment-empty">
+                                <i class="ph ph-warning-circle"></i>
+                                <h3>Unable to Load Payments</h3>
+                                <p>${err.message || 'Something went wrong while loading received payments.'}</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
+
+    // ==========================================
+    // 11. CHAT
     // ==========================================
     document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.open-chat-btn');
@@ -1467,7 +1742,7 @@
     });
 
     // ==========================================
-    // 11. LANDLORD PROFILE UPDATE
+    // 12. LANDLORD PROFILE UPDATE
     // ==========================================
     landlordProfileForm?.addEventListener('submit', async (e) => {
         e.preventDefault();

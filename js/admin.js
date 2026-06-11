@@ -26,6 +26,11 @@
     const profileMenuAccountSettings = document.getElementById('profile-menu-account-settings');
     const profileMenuLogout = document.getElementById('profile-menu-logout');
 
+    const verifyLedgerBtn = document.getElementById('verify-ledger-btn');
+    const refreshLedgerBtn = document.getElementById('refresh-ledger-btn');
+    const adminPaymentLedgerBody = document.getElementById('admin-payment-ledger-body');
+    const adminLedgerVerificationBody = document.getElementById('admin-ledger-verification-body');
+
     document.addEventListener('DOMContentLoaded', () => {
         bindNavigation();
         bindProfileMenu();
@@ -33,6 +38,7 @@
         bindPrintReport();
         bindRefresh();
         bindAdminFilters();
+        bindLedgerActions();
         initAdminDashboard();
     });
 
@@ -58,6 +64,18 @@
         });
     }
 
+    function formatDateTime(value) {
+        if (!value) return 'Not available';
+
+        return new Date(value).toLocaleString('en-GH', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     function normalizeAdminText(value) {
         return String(value || '').toLowerCase().trim();
     }
@@ -65,15 +83,25 @@
     function getStatusBadgeClass(status) {
         const cleanStatus = String(status || '').toLowerCase();
 
-        if (cleanStatus === 'accepted' || cleanStatus === 'available' || cleanStatus === 'active') {
+        if (cleanStatus === 'accepted' || cleanStatus === 'available' || cleanStatus === 'active' || cleanStatus === 'paid') {
             return 'status-accepted';
         }
 
-        if (cleanStatus === 'rejected' || cleanStatus === 'inactive' || cleanStatus === 'deactivated') {
+        if (cleanStatus === 'rejected' || cleanStatus === 'inactive' || cleanStatus === 'deactivated' || cleanStatus === 'failed') {
             return 'status-rejected';
         }
 
         return 'status-pending';
+    }
+
+    function shortenHash(hash) {
+        if (!hash) return 'N/A';
+
+        const cleanHash = String(hash);
+
+        if (cleanHash.length <= 28) return cleanHash;
+
+        return `${cleanHash.slice(0, 18)}...${cleanHash.slice(-10)}`;
     }
 
     function bindNavigation() {
@@ -98,6 +126,7 @@
                 if (target === 'properties') loadProperties();
                 if (target === 'negotiations') loadNegotiations();
                 if (target === 'leases') loadLeases();
+                if (target === 'payment-ledger') loadPaymentLedger();
 
                 if (target === 'reports') {
                     loadOverviewMetrics().then(() => buildReportSummary());
@@ -117,6 +146,10 @@
         views.forEach(view => {
             view.classList.toggle('active-view', view.id === sectionId);
         });
+
+        if (sectionId === 'payment-ledger') {
+            loadPaymentLedger();
+        }
 
         if (focusElementId) {
             setTimeout(() => {
@@ -172,6 +205,26 @@
 
         adminPropertySearch?.addEventListener('input', () => renderAdminProperties(cachedProperties));
         adminPropertyStatusFilter?.addEventListener('change', () => renderAdminProperties(cachedProperties));
+    }
+
+    function bindLedgerActions() {
+        verifyLedgerBtn?.addEventListener('click', verifyPaymentLedger);
+
+        refreshLedgerBtn?.addEventListener('click', async () => {
+            const originalText = refreshLedgerBtn.innerHTML;
+
+            refreshLedgerBtn.disabled = true;
+            refreshLedgerBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Refreshing...';
+
+            try {
+                await loadPaymentLedger();
+            } catch (error) {
+                alert('Unable to refresh payment ledger: ' + error.message);
+            } finally {
+                refreshLedgerBtn.disabled = false;
+                refreshLedgerBtn.innerHTML = originalText;
+            }
+        });
     }
 
     async function initAdminDashboard() {
@@ -255,6 +308,7 @@
         await loadProperties();
         await loadNegotiations();
         await loadLeases();
+        await loadPaymentLedger();
         await buildReportSummary();
     }
 
@@ -286,10 +340,10 @@
             setText('stat-tenants', userRows.filter(u => u.role === 'Tenant').length);
             setText('stat-landlords', userRows.filter(u => u.role === 'Landlord').length);
             setText('stat-total-properties', propertyRows.length);
-            setText('stat-available-properties', propertyRows.filter(p => p.status === 'Available').length);
-            setText('stat-occupied-properties', propertyRows.filter(p => p.status === 'Occupied').length);
-            setText('stat-pending-negotiations', negotiationRows.filter(n => n.status === 'Pending').length);
-            setText('stat-active-leases', negotiationRows.filter(n => n.status === 'Accepted').length);
+            setText('stat-available-properties', propertyRows.filter(p => String(p.status || '').toLowerCase() === 'available').length);
+            setText('stat-occupied-properties', propertyRows.filter(p => String(p.status || '').toLowerCase() === 'occupied').length);
+            setText('stat-pending-negotiations', negotiationRows.filter(n => String(n.status || '').toLowerCase() === 'pending').length);
+            setText('stat-active-leases', negotiationRows.filter(n => String(n.status || '').toLowerCase() === 'accepted').length);
         } catch (err) {
             console.error('Admin metric loading error:', err.message);
         }
@@ -669,7 +723,7 @@
                         phone_number
                     )
                 `)
-                .eq('status', 'Accepted')
+                .in('status', ['Accepted', 'accepted'])
                 .order('updated_at', { ascending: false });
 
             if (error) throw error;
@@ -723,6 +777,307 @@
         }
     }
 
+    async function loadPaymentLedger() {
+        if (!adminPaymentLedgerBody) return;
+
+        adminPaymentLedgerBody.innerHTML = `
+            <tr>
+                <td colspan="9">
+                    <div class="ledger-empty-state">
+                        <i class="ph ph-spinner ph-spin"></i>
+                        <h3>Loading payment ledger</h3>
+                        <p>Please wait while the system retrieves blockchain ledger records.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        try {
+            const { data: paidPayments, error: paidPaymentsError } = await supabaseClient
+                .from('payments')
+                .select('id, amount, payment_status')
+                .eq('payment_status', 'paid');
+
+            if (paidPaymentsError) throw paidPaymentsError;
+
+            const { data: ledgerRows, error: ledgerError } = await supabaseClient
+                .from('payment_ledger')
+                .select('*')
+                .order('block_number', { ascending: false });
+
+            if (ledgerError) throw ledgerError;
+
+            const ledgers = ledgerRows || [];
+            const paidRows = paidPayments || [];
+
+            const totalPaidAmount = paidRows.reduce((sum, payment) => {
+                return sum + Number(payment.amount || 0);
+            }, 0);
+
+            setText('admin-paid-payments-count', paidRows.length);
+            setText('admin-ledger-blocks-count', ledgers.length);
+            setText('admin-total-paid-amount', `GHS ${formatMoney(totalPaidAmount)}`);
+
+            if (ledgers.length === 0) {
+                setText('admin-ledger-status-text', 'No Blocks');
+                updateLedgerValidityBadge('waiting', 'No ledger blocks yet');
+
+                adminPaymentLedgerBody.innerHTML = `
+                    <tr>
+                        <td colspan="9">
+                            <div class="ledger-empty-state">
+                                <i class="ph ph-link-simple-break"></i>
+                                <h3>No Ledger Blocks Yet</h3>
+                                <p>Successful rent payments will appear here after verification.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const tenantIds = [...new Set(ledgers.map(row => row.tenant_id).filter(Boolean))];
+            const landlordIds = [...new Set(ledgers.map(row => row.landlord_id).filter(Boolean))];
+            const userIds = [...new Set([...tenantIds, ...landlordIds])];
+            const propertyIds = [...new Set(ledgers.map(row => row.property_id).filter(Boolean))];
+
+            let userMap = {};
+            let propertyMap = {};
+
+            if (userIds.length > 0) {
+                const { data: users, error: usersError } = await supabaseClient
+                    .from('users')
+                    .select('id, full_name, role')
+                    .in('id', userIds);
+
+                if (usersError) throw usersError;
+
+                userMap = (users || []).reduce((map, user) => {
+                    map[user.id] = user;
+                    return map;
+                }, {});
+            }
+
+            if (propertyIds.length > 0) {
+                const { data: properties, error: propertiesError } = await supabaseClient
+                    .from('properties')
+                    .select('id, title, location')
+                    .in('id', propertyIds);
+
+                if (propertiesError) throw propertiesError;
+
+                propertyMap = (properties || []).reduce((map, property) => {
+                    map[property.id] = property;
+                    return map;
+                }, {});
+            }
+
+            adminPaymentLedgerBody.innerHTML = ledgers.map(row => {
+                const tenantName = userMap[row.tenant_id]?.full_name || 'Tenant';
+                const landlordName = userMap[row.landlord_id]?.full_name || 'Landlord';
+                const property = propertyMap[row.property_id];
+                const propertyTitle = property?.title || 'Property';
+                const propertyLocation = property?.location || 'Location not available';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>#${row.block_number || '-'}</strong>
+                        </td>
+
+                        <td>
+                            <span class="ledger-reference">${row.payment_reference || 'N/A'}</span>
+                        </td>
+
+                        <td>
+                            <strong>GHS ${formatMoney(row.amount)}</strong>
+                        </td>
+
+                        <td>${tenantName}</td>
+
+                        <td>${landlordName}</td>
+
+                        <td>
+                            <strong>${propertyTitle}</strong>
+                            <br>
+                            <span style="font-size:0.78rem; color:#64748b;">${propertyLocation}</span>
+                        </td>
+
+                        <td class="hash-cell" title="${row.previous_hash || ''}">
+                            ${shortenHash(row.previous_hash)}
+                        </td>
+
+                        <td class="hash-cell" title="${row.current_hash || ''}">
+                            ${shortenHash(row.current_hash)}
+                        </td>
+
+                        <td>${formatDateTime(row.created_at)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            await verifyPaymentLedger(false);
+        } catch (err) {
+            console.error('Payment ledger loading error:', err);
+
+            setText('admin-ledger-status-text', 'Error');
+            updateLedgerValidityBadge('broken', 'Unable to load ledger');
+
+            adminPaymentLedgerBody.innerHTML = `
+                <tr>
+                    <td colspan="9">
+                        <div class="ledger-empty-state">
+                            <i class="ph ph-warning-circle"></i>
+                            <h3>Unable to Load Ledger</h3>
+                            <p>${err.message || 'Something went wrong while loading payment ledger records.'}</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    async function verifyPaymentLedger(showAlert = true) {
+        if (!adminLedgerVerificationBody) return;
+
+        const originalText = verifyLedgerBtn ? verifyLedgerBtn.innerHTML : '';
+
+        if (verifyLedgerBtn) {
+            verifyLedgerBtn.disabled = true;
+            verifyLedgerBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Checking...';
+        }
+
+        adminLedgerVerificationBody.innerHTML = `
+            <tr>
+                <td colspan="4">
+                    <div class="ledger-empty-state">
+                        <i class="ph ph-spinner ph-spin"></i>
+                        <h3>Verifying ledger</h3>
+                        <p>Checking block links and hash references...</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('verify_payment_ledger');
+
+            if (error) throw error;
+
+            const results = data || [];
+
+            if (results.length === 0) {
+                setText('admin-ledger-status-text', 'No Blocks');
+                updateLedgerValidityBadge('waiting', 'No ledger blocks yet');
+
+                adminLedgerVerificationBody.innerHTML = `
+                    <tr>
+                        <td colspan="4">
+                            <div class="ledger-empty-state">
+                                <i class="ph ph-link-simple-break"></i>
+                                <h3>No Blocks to Verify</h3>
+                                <p>No payment ledger block has been created yet.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const invalidRows = results.filter(item => item.is_valid === false);
+            const ledgerIsValid = invalidRows.length === 0;
+
+            if (ledgerIsValid) {
+                setText('admin-ledger-status-text', 'Valid');
+                updateLedgerValidityBadge('valid', 'Ledger chain valid');
+            } else {
+                setText('admin-ledger-status-text', 'Broken');
+                updateLedgerValidityBadge('broken', 'Ledger issue found');
+            }
+
+            adminLedgerVerificationBody.innerHTML = results.map(item => {
+                const statusClass = item.is_valid ? 'status-accepted' : 'status-rejected';
+                const statusText = item.is_valid ? 'Valid' : 'Invalid';
+                const icon = item.is_valid ? 'ph-check-circle' : 'ph-warning-circle';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>#${item.block_number || '-'}</strong>
+                        </td>
+
+                        <td>
+                            <span class="ledger-reference">${item.payment_reference || 'N/A'}</span>
+                        </td>
+
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                <i class="ph ${icon}"></i> ${statusText}
+                            </span>
+                        </td>
+
+                        <td>${item.issue || 'No issue reported'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (showAlert) {
+                alert(ledgerIsValid
+                    ? 'Ledger verification completed. All blocks are valid.'
+                    : 'Ledger verification completed. Some blocks need attention.'
+                );
+            }
+        } catch (err) {
+            console.error('Ledger verification error:', err);
+
+            setText('admin-ledger-status-text', 'Error');
+            updateLedgerValidityBadge('broken', 'Verification failed');
+
+            adminLedgerVerificationBody.innerHTML = `
+                <tr>
+                    <td colspan="4">
+                        <div class="ledger-empty-state">
+                            <i class="ph ph-warning-circle"></i>
+                            <h3>Verification Failed</h3>
+                            <p>${err.message || 'Unable to verify payment ledger.'}</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
+            if (showAlert) {
+                alert('Ledger verification failed: ' + err.message);
+            }
+        } finally {
+            if (verifyLedgerBtn) {
+                verifyLedgerBtn.disabled = false;
+                verifyLedgerBtn.innerHTML = originalText || '<i class="ph ph-shield-check"></i> Verify Ledger';
+            }
+        }
+    }
+
+    function updateLedgerValidityBadge(state, text) {
+        const badge = document.getElementById('admin-ledger-validity-badge');
+
+        if (!badge) return;
+
+        badge.classList.remove('valid', 'broken');
+
+        let icon = 'ph-shield-check';
+
+        if (state === 'valid') {
+            badge.classList.add('valid');
+            icon = 'ph-check-circle';
+        } else if (state === 'broken') {
+            badge.classList.add('broken');
+            icon = 'ph-warning-circle';
+        } else {
+            icon = 'ph-shield-check';
+        }
+
+        badge.innerHTML = `<i class="ph ${icon}"></i> ${text}`;
+    }
+
     async function buildReportSummary() {
         if (!reportSummary) return;
 
@@ -735,6 +1090,32 @@
             const occupied = document.getElementById('stat-occupied-properties')?.innerText || '0';
             const pending = document.getElementById('stat-pending-negotiations')?.innerText || '0';
             const leases = document.getElementById('stat-active-leases')?.innerText || '0';
+
+            let paidPayments = '0';
+            let ledgerBlocks = '0';
+            let totalPaidAmount = 'GHS 0.00';
+
+            try {
+                const { data: payments } = await supabaseClient
+                    .from('payments')
+                    .select('amount, payment_status')
+                    .eq('payment_status', 'paid');
+
+                const { data: ledgers } = await supabaseClient
+                    .from('payment_ledger')
+                    .select('id');
+
+                const paidRows = payments || [];
+                const ledgerRows = ledgers || [];
+
+                paidPayments = String(paidRows.length);
+                ledgerBlocks = String(ledgerRows.length);
+
+                const total = paidRows.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+                totalPaidAmount = `GHS ${formatMoney(total)}`;
+            } catch (paymentReportError) {
+                console.warn('Payment report values skipped:', paymentReportError.message);
+            }
 
             const reportDate = document.getElementById('admin-report-date');
             const observation = document.getElementById('admin-report-observation');
@@ -783,6 +1164,21 @@
                     <span>Active Leases</span>
                     <strong>${leases}</strong>
                 </div>
+
+                <div class="report-stat-item">
+                    <span>Paid Payments</span>
+                    <strong>${paidPayments}</strong>
+                </div>
+
+                <div class="report-stat-item">
+                    <span>Ledger Blocks</span>
+                    <strong>${ledgerBlocks}</strong>
+                </div>
+
+                <div class="report-stat-item">
+                    <span>Total Paid Amount</span>
+                    <strong style="font-size:1.1rem;">${totalPaidAmount}</strong>
+                </div>
             `;
 
             if (observation) {
@@ -790,6 +1186,8 @@
                 const propertyCount = Number(properties) || 0;
                 const leaseCount = Number(leases) || 0;
                 const pendingCount = Number(pending) || 0;
+                const paidCount = Number(paidPayments) || 0;
+                const ledgerCount = Number(ledgerBlocks) || 0;
 
                 let observationText = '';
 
@@ -799,7 +1197,8 @@
                 } else {
                     observationText =
                         `The platform currently records ${userCount} user account(s), ${propertyCount} property listing(s), ${pendingCount} pending negotiation(s), and ${leaseCount} active lease record(s). ` +
-                        'This indicates that the Admin Dashboard is successfully monitoring major system activities including user registration, property listing, negotiations, and accepted rental agreements.';
+                        `The system has also recorded ${paidCount} paid rent transaction(s) and ${ledgerCount} blockchain-style ledger block(s). ` +
+                        'This indicates that the Admin Dashboard is successfully monitoring users, listings, negotiations, accepted rental agreements, payments, and blockchain ledger evidence.';
                 }
 
                 observation.innerText = observationText;
@@ -863,156 +1262,156 @@
     }
 
     function bindPrintReport() {
-    const printBtn = document.getElementById('print-admin-report-btn');
+        const printBtn = document.getElementById('print-admin-report-btn');
 
-    printBtn?.addEventListener('click', async () => {
-        await loadOverviewMetrics();
-        await buildReportSummary();
+        printBtn?.addEventListener('click', async () => {
+            await loadOverviewMetrics();
+            await buildReportSummary();
 
-        const reportCard = document.getElementById('admin-report-card');
+            const reportCard = document.getElementById('admin-report-card');
 
-        if (!reportCard) {
-            alert('Report content not found.');
-            return;
-        }
+            if (!reportCard) {
+                alert('Report content not found.');
+                return;
+            }
 
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
 
-        if (!printWindow) {
-            alert('Popup blocked. Please allow popups for this site and try again.');
-            return;
-        }
+            if (!printWindow) {
+                alert('Popup blocked. Please allow popups for this site and try again.');
+                return;
+            }
 
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>RentHaven Ghana Admin Report</title>
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>RentHaven Ghana Admin Report</title>
 
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        background: #ffffff;
-                        color: #0f172a;
-                        margin: 0;
-                        padding: 30px;
-                    }
-
-                    .admin-report-document {
-                        max-width: 900px;
-                        margin: 0 auto;
-                        background: #ffffff;
-                        color: #0f172a;
-                    }
-
-                    .report-header {
-                        text-align: center;
-                        border-bottom: 2px solid #000000;
-                        padding-bottom: 18px;
-                        margin-bottom: 24px;
-                    }
-
-                    .report-header h2 {
-                        margin: 0;
-                        font-size: 28px;
-                        color: #000000;
-                        font-weight: 800;
-                    }
-
-                    .report-header h3 {
-                        margin: 6px 0;
-                        font-size: 18px;
-                        color: #000000;
-                        font-weight: 700;
-                    }
-
-                    .report-header p {
-                        margin: 6px 0 0;
-                        color: #333333;
-                        font-size: 14px;
-                    }
-
-                    .report-section {
-                        margin-bottom: 24px;
-                    }
-
-                    .report-section h3 {
-                        font-size: 16px;
-                        color: #000000;
-                        border-left: 4px solid #000000;
-                        padding-left: 10px;
-                        margin-bottom: 10px;
-                    }
-
-                    .report-section p {
-                        color: #333333;
-                        line-height: 1.7;
-                        font-size: 14px;
-                    }
-
-                    .report-stat-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 12px;
-                        margin-top: 14px;
-                    }
-
-                    .report-stat-item {
-                        border: 1px solid #999999;
-                        border-radius: 8px;
-                        padding: 14px;
-                        background: #ffffff;
-                        break-inside: avoid;
-                    }
-
-                    .report-stat-item span {
-                        display: block;
-                        color: #444444;
-                        font-size: 13px;
-                        margin-bottom: 6px;
-                    }
-
-                    .report-stat-item strong {
-                        display: block;
-                        font-size: 24px;
-                        color: #000000;
-                    }
-
-                    .report-footer {
-                        border-top: 1px solid #999999;
-                        padding-top: 16px;
-                        margin-top: 24px;
-                        text-align: center;
-                        color: #333333;
-                        font-size: 12px;
-                    }
-
-                    .report-footer p {
-                        margin: 4px 0;
-                    }
-
-                    @media print {
+                    <style>
                         body {
-                            padding: 20px;
+                            font-family: Arial, sans-serif;
+                            background: #ffffff;
+                            color: #0f172a;
+                            margin: 0;
+                            padding: 30px;
                         }
-                    }
-                </style>
-            </head>
 
-            <body>
-                ${reportCard.outerHTML}
-            </body>
-            </html>
-        `);
+                        .admin-report-document {
+                            max-width: 900px;
+                            margin: 0 auto;
+                            background: #ffffff;
+                            color: #0f172a;
+                        }
 
-        printWindow.document.close();
+                        .report-header {
+                            text-align: center;
+                            border-bottom: 2px solid #000000;
+                            padding-bottom: 18px;
+                            margin-bottom: 24px;
+                        }
 
-        printWindow.onload = () => {
-            printWindow.focus();
-            printWindow.print();
-        };
-    });
-}
+                        .report-header h2 {
+                            margin: 0;
+                            font-size: 28px;
+                            color: #000000;
+                            font-weight: 800;
+                        }
+
+                        .report-header h3 {
+                            margin: 6px 0;
+                            font-size: 18px;
+                            color: #000000;
+                            font-weight: 700;
+                        }
+
+                        .report-header p {
+                            margin: 6px 0 0;
+                            color: #333333;
+                            font-size: 14px;
+                        }
+
+                        .report-section {
+                            margin-bottom: 24px;
+                        }
+
+                        .report-section h3 {
+                            font-size: 16px;
+                            color: #000000;
+                            border-left: 4px solid #000000;
+                            padding-left: 10px;
+                            margin-bottom: 10px;
+                        }
+
+                        .report-section p {
+                            color: #333333;
+                            line-height: 1.7;
+                            font-size: 14px;
+                        }
+
+                        .report-stat-grid {
+                            display: grid;
+                            grid-template-columns: repeat(2, 1fr);
+                            gap: 12px;
+                            margin-top: 14px;
+                        }
+
+                        .report-stat-item {
+                            border: 1px solid #999999;
+                            border-radius: 8px;
+                            padding: 14px;
+                            background: #ffffff;
+                            break-inside: avoid;
+                        }
+
+                        .report-stat-item span {
+                            display: block;
+                            color: #444444;
+                            font-size: 13px;
+                            margin-bottom: 6px;
+                        }
+
+                        .report-stat-item strong {
+                            display: block;
+                            font-size: 24px;
+                            color: #000000;
+                        }
+
+                        .report-footer {
+                            border-top: 1px solid #999999;
+                            padding-top: 16px;
+                            margin-top: 24px;
+                            text-align: center;
+                            color: #333333;
+                            font-size: 12px;
+                        }
+
+                        .report-footer p {
+                            margin: 4px 0;
+                        }
+
+                        @media print {
+                            body {
+                                padding: 20px;
+                            }
+                        }
+                    </style>
+                </head>
+
+                <body>
+                    ${reportCard.outerHTML}
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+
+            printWindow.onload = () => {
+                printWindow.focus();
+                printWindow.print();
+            };
+        });
+    }
 
     function bindRefresh() {
         const refreshBtn = document.getElementById('admin-refresh-btn');
