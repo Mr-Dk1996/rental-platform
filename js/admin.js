@@ -778,164 +778,122 @@
     }
 
     async function loadPaymentLedger() {
-        if (!adminPaymentLedgerBody) return;
+    if (!adminPaymentLedgerBody) return;
 
-        adminPaymentLedgerBody.innerHTML = `
-            <tr>
-                <td colspan="9">
-                    <div class="ledger-empty-state">
-                        <i class="ph ph-spinner ph-spin"></i>
-                        <h3>Loading payment ledger</h3>
-                        <p>Please wait while the system retrieves blockchain ledger records.</p>
-                    </div>
-                </td>
-            </tr>
-        `;
+    adminPaymentLedgerBody.innerHTML = `
+        <tr>
+            <td colspan="9">
+                <div class="ledger-empty-state">
+                    <i class="ph ph-spinner ph-spin"></i>
+                    <h3>Loading payment ledger</h3>
+                    <p>Please wait while the system retrieves blockchain ledger records.</p>
+                </div>
+            </td>
+        </tr>
+    `;
 
-        try {
-            const { data: paidPayments, error: paidPaymentsError } = await supabaseClient
-                .from('payments')
-                .select('id, amount, payment_status')
-                .eq('payment_status', 'paid');
+    try {
+        const { data: paidPayments, error: paidPaymentsError } = await supabaseClient
+            .from('payments')
+            .select('id, amount, payment_status')
+            .eq('payment_status', 'paid');
 
-            if (paidPaymentsError) throw paidPaymentsError;
+        if (paidPaymentsError) throw paidPaymentsError;
 
-            const { data: ledgerRows, error: ledgerError } = await supabaseClient
-                .from('payment_ledger')
-                .select('*')
-                .order('block_number', { ascending: false });
+        const { data: ledgerRows, error: ledgerError } = await supabaseClient
+            .rpc('get_admin_payment_ledger');
 
-            if (ledgerError) throw ledgerError;
+        if (ledgerError) throw ledgerError;
 
-            const ledgers = ledgerRows || [];
-            const paidRows = paidPayments || [];
+        const ledgers = ledgerRows || [];
+        const paidRows = paidPayments || [];
 
-            const totalPaidAmount = paidRows.reduce((sum, payment) => {
-                return sum + Number(payment.amount || 0);
-            }, 0);
+        const totalPaidAmount = paidRows.reduce((sum, payment) => {
+            return sum + Number(payment.amount || 0);
+        }, 0);
 
-            setText('admin-paid-payments-count', paidRows.length);
-            setText('admin-ledger-blocks-count', ledgers.length);
-            setText('admin-total-paid-amount', `GHS ${formatMoney(totalPaidAmount)}`);
+        setText('admin-paid-payments-count', paidRows.length);
+        setText('admin-ledger-blocks-count', ledgers.length);
+        setText('admin-total-paid-amount', `GHS ${formatMoney(totalPaidAmount)}`);
 
-            if (ledgers.length === 0) {
-                setText('admin-ledger-status-text', 'No Blocks');
-                updateLedgerValidityBadge('waiting', 'No ledger blocks yet');
-
-                adminPaymentLedgerBody.innerHTML = `
-                    <tr>
-                        <td colspan="9">
-                            <div class="ledger-empty-state">
-                                <i class="ph ph-link-simple-break"></i>
-                                <h3>No Ledger Blocks Yet</h3>
-                                <p>Successful rent payments will appear here after verification.</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const tenantIds = [...new Set(ledgers.map(row => row.tenant_id).filter(Boolean))];
-            const landlordIds = [...new Set(ledgers.map(row => row.landlord_id).filter(Boolean))];
-            const userIds = [...new Set([...tenantIds, ...landlordIds])];
-            const propertyIds = [...new Set(ledgers.map(row => row.property_id).filter(Boolean))];
-
-            let userMap = {};
-            let propertyMap = {};
-
-            if (userIds.length > 0) {
-                const { data: users, error: usersError } = await supabaseClient
-                    .from('users')
-                    .select('id, full_name, role')
-                    .in('id', userIds);
-
-                if (usersError) throw usersError;
-
-                userMap = (users || []).reduce((map, user) => {
-                    map[user.id] = user;
-                    return map;
-                }, {});
-            }
-
-            if (propertyIds.length > 0) {
-                const { data: properties, error: propertiesError } = await supabaseClient
-                    .from('properties')
-                    .select('id, title, location')
-                    .in('id', propertyIds);
-
-                if (propertiesError) throw propertiesError;
-
-                propertyMap = (properties || []).reduce((map, property) => {
-                    map[property.id] = property;
-                    return map;
-                }, {});
-            }
-
-            adminPaymentLedgerBody.innerHTML = ledgers.map(row => {
-                const tenantName = userMap[row.tenant_id]?.full_name || 'Tenant';
-                const landlordName = userMap[row.landlord_id]?.full_name || 'Landlord';
-                const property = propertyMap[row.property_id];
-                const propertyTitle = property?.title || 'Property';
-                const propertyLocation = property?.location || 'Location not available';
-
-                return `
-                    <tr>
-                        <td>
-                            <strong>#${row.block_number || '-'}</strong>
-                        </td>
-
-                        <td>
-                            <span class="ledger-reference">${row.payment_reference || 'N/A'}</span>
-                        </td>
-
-                        <td>
-                            <strong>GHS ${formatMoney(row.amount)}</strong>
-                        </td>
-
-                        <td>${tenantName}</td>
-
-                        <td>${landlordName}</td>
-
-                        <td>
-                            <strong>${propertyTitle}</strong>
-                            <br>
-                            <span style="font-size:0.78rem; color:#64748b;">${propertyLocation}</span>
-                        </td>
-
-                        <td class="hash-cell" title="${row.previous_hash || ''}">
-                            ${shortenHash(row.previous_hash)}
-                        </td>
-
-                        <td class="hash-cell" title="${row.current_hash || ''}">
-                            ${shortenHash(row.current_hash)}
-                        </td>
-
-                        <td>${formatDateTime(row.created_at)}</td>
-                    </tr>
-                `;
-            }).join('');
-
-            await verifyPaymentLedger(false);
-        } catch (err) {
-            console.error('Payment ledger loading error:', err);
-
-            setText('admin-ledger-status-text', 'Error');
-            updateLedgerValidityBadge('broken', 'Unable to load ledger');
+        if (ledgers.length === 0) {
+            setText('admin-ledger-status-text', 'No Blocks');
+            updateLedgerValidityBadge('waiting', 'No ledger blocks yet');
 
             adminPaymentLedgerBody.innerHTML = `
                 <tr>
                     <td colspan="9">
                         <div class="ledger-empty-state">
-                            <i class="ph ph-warning-circle"></i>
-                            <h3>Unable to Load Ledger</h3>
-                            <p>${err.message || 'Something went wrong while loading payment ledger records.'}</p>
+                            <i class="ph ph-link-simple-break"></i>
+                            <h3>No Ledger Blocks Yet</h3>
+                            <p>Successful rent payments will appear here after verification.</p>
                         </div>
                     </td>
                 </tr>
             `;
+            return;
         }
+
+        adminPaymentLedgerBody.innerHTML = ledgers.map(row => {
+            return `
+                <tr>
+                    <td>
+                        <strong>#${row.block_number || '-'}</strong>
+                    </td>
+
+                    <td>
+                        <span class="ledger-reference">${row.payment_reference || 'N/A'}</span>
+                    </td>
+
+                    <td>
+                        <strong>GHS ${formatMoney(row.amount)}</strong>
+                    </td>
+
+                    <td>${row.tenant_name || 'Tenant'}</td>
+
+                    <td>${row.landlord_name || 'Landlord'}</td>
+
+                    <td>
+                        <strong>${row.property_title || 'Property'}</strong>
+                        <br>
+                        <span style="font-size:0.78rem; color:#64748b;">
+                            ${row.property_location || 'Location not available'}
+                        </span>
+                    </td>
+
+                    <td class="hash-cell" title="${row.previous_hash || ''}">
+                        ${shortenHash(row.previous_hash)}
+                    </td>
+
+                    <td class="hash-cell" title="${row.current_hash || ''}">
+                        ${shortenHash(row.current_hash)}
+                    </td>
+
+                    <td>${formatDateTime(row.created_at)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        await verifyPaymentLedger(false);
+    } catch (err) {
+        console.error('Payment ledger loading error:', err);
+
+        setText('admin-ledger-status-text', 'Error');
+        updateLedgerValidityBadge('broken', 'Unable to load ledger');
+
+        adminPaymentLedgerBody.innerHTML = `
+            <tr>
+                <td colspan="9">
+                    <div class="ledger-empty-state">
+                        <i class="ph ph-warning-circle"></i>
+                        <h3>Unable to Load Ledger</h3>
+                        <p>${err.message || 'Something went wrong while loading payment ledger records.'}</p>
+                    </div>
+                </td>
+            </tr>
+        `;
     }
+}
 
     async function verifyPaymentLedger(showAlert = true) {
         if (!adminLedgerVerificationBody) return;
