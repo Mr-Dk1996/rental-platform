@@ -682,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, true);
     }
 
-    async function getTenantPersonalizationSignals() {
+        async function getTenantPersonalizationSignals() {
         const signals = {
             searchedLocations: new Set(),
             filteredTypes: new Set(),
@@ -1435,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function buildLeaseAgreementHTML(lease) {
+        function buildLeaseAgreementHTML(lease) {
         const property = lease.properties || {};
         const landlord = lease.landlord || {};
         const tenant = lease.tenant || {};
@@ -2002,43 +2002,74 @@ document.addEventListener('DOMContentLoaded', () => {
         button.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Starting payment...';
 
         try {
-            const paymentPayload = {
-                tenant_id: button.getAttribute('data-tenant-id'),
-                landlord_id: button.getAttribute('data-landlord-id'),
-                property_id: button.getAttribute('data-property-id'),
-                negotiation_id: button.getAttribute('data-negotiation-id'),
-                email: button.getAttribute('data-email'),
-                amount: Number(button.getAttribute('data-amount') || 0),
-                property_title: button.getAttribute('data-property-title') || 'Rental Property'
-            };
+            /*
+              Retrieve the tenant's current Supabase login session.
+              Supabase refreshes the session when necessary.
+            */
+            const {
+                data: { session },
+                error: sessionError
+            } = await supabaseClient.auth.getSession();
 
-            if (
-                !paymentPayload.tenant_id ||
-                !paymentPayload.landlord_id ||
-                !paymentPayload.property_id ||
-                !paymentPayload.email ||
-                !paymentPayload.amount
-            ) {
-                throw new Error('Missing payment details. Please refresh the page and try again.');
+            if (sessionError) {
+                throw new Error('Unable to verify your login session.');
             }
+
+            if (!session?.access_token) {
+                throw new Error('Your login session has expired. Please log in again.');
+            }
+
+            const propertyId = button.getAttribute('data-property-id');
+            const negotiationId = button.getAttribute('data-negotiation-id') || null;
+
+            if (!propertyId) {
+                throw new Error('Missing property information. Please refresh the page.');
+            }
+
+            /*
+              Only identifiers needed by the secure server function
+              are supplied. The server determines the tenant, landlord,
+              email, amount and property details.
+            */
+            const paymentPayload = {
+                property_id: propertyId,
+                negotiation_id: negotiationId
+            };
 
             const response = await fetch('/.netlify/functions/initialize-payment', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`
                 },
                 body: JSON.stringify(paymentPayload)
             });
 
-            const result = await response.json();
+            const responseText = await response.text();
+            let result = {};
+
+            try {
+                result = responseText ? JSON.parse(responseText) : {};
+            } catch {
+                result = {};
+            }
+
+            if (response.status === 401) {
+                throw new Error('Your login session is invalid or expired. Please log in again.');
+            }
 
             if (!response.ok || !result.authorization_url) {
-                throw new Error(result.error || result.details?.message || 'Unable to start payment.');
+                throw new Error(
+                    result.error ||
+                    result.details?.message ||
+                    'Unable to start payment.'
+                );
             }
 
             window.location.href = result.authorization_url;
         } catch (error) {
             alert('Payment could not start: ' + error.message);
+
             button.disabled = false;
             button.innerHTML = originalText;
         }
@@ -2309,6 +2340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
+
     // 9. FREE AI-ASSISTED SMART RECOMMENDATIONS
     // ==========================================
     const smartRecommendationsGrid = document.getElementById('smart-recommendations-grid');
@@ -2395,7 +2427,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const propertyBedrooms = Number(property.bedrooms ?? amenities.beds ?? 0);
 
         if (preferences.location) {
-            if (fuzzyIncludes(propertyLocation, preferences.location) || fuzzyIncludes(propertyTitle, preferences.location)) {
+            if (
+                fuzzyIncludes(propertyLocation, preferences.location) ||
+                fuzzyIncludes(propertyTitle, preferences.location)
+            ) {
                 score += 30;
                 reasons.push('location match');
             }
@@ -2423,11 +2458,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (preferences.bedrooms !== null && !Number.isNaN(preferences.bedrooms)) {
+        if (
+            preferences.bedrooms !== null &&
+            !Number.isNaN(preferences.bedrooms)
+        ) {
             if (propertyBedrooms === preferences.bedrooms) {
                 score += 15;
                 reasons.push('bedroom preference match');
-            } else if (Math.abs(propertyBedrooms - preferences.bedrooms) === 1) {
+            } else if (
+                Math.abs(propertyBedrooms - preferences.bedrooms) === 1
+            ) {
                 score += 5;
                 reasons.push('close bedroom match');
             }
@@ -2438,7 +2478,11 @@ document.addEventListener('DOMContentLoaded', () => {
             reasons.push('similar to saved spaces');
         }
 
-        if (Array.from(userSignals.savedLocations).some(loc => fuzzyIncludes(propertyLocation, loc))) {
+        if (
+            Array.from(userSignals.savedLocations).some(location =>
+                fuzzyIncludes(propertyLocation, location)
+            )
+        ) {
             score += 12;
             reasons.push('similar saved location');
         }
@@ -2448,12 +2492,20 @@ document.addEventListener('DOMContentLoaded', () => {
             reasons.push('matches negotiation history');
         }
 
-        if (Array.from(userSignals.negotiatedLocations).some(loc => fuzzyIncludes(propertyLocation, loc))) {
+        if (
+            Array.from(userSignals.negotiatedLocations).some(location =>
+                fuzzyIncludes(propertyLocation, location)
+            )
+        ) {
             score += 10;
             reasons.push('matches previous search interest');
         }
 
-        if (!preferences.budget && userSignals.averageSavedBudget > 0 && propertyPrice > 0) {
+        if (
+            !preferences.budget &&
+            userSignals.averageSavedBudget > 0 &&
+            propertyPrice > 0
+        ) {
             if (propertyPrice <= userSignals.averageSavedBudget) {
                 score += 8;
                 reasons.push('budget friendly based on saved spaces');
@@ -2494,7 +2546,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        const {
+            data: { user },
+            error: authError
+        } = await supabaseClient.auth.getUser();
 
         if (authError || !user) {
             smartRecommendationsGrid.innerHTML = `
@@ -2510,7 +2565,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const preferences = getAiPreferences();
 
         try {
-            const { data: properties, error: propertiesError } = await supabaseClient
+            const {
+                data: properties,
+                error: propertiesError
+            } = await supabaseClient
                 .from('properties')
                 .select('*, property_images(storage_path)')
                 .eq('status', 'Available')
@@ -2518,7 +2576,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (propertiesError) throw propertiesError;
 
-            const { data: savedItems, error: savedError } = await supabaseClient
+            const {
+                data: savedItems,
+                error: savedError
+            } = await supabaseClient
                 .from('saved_properties')
                 .select(`
                     property_id,
@@ -2537,7 +2598,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (savedError) throw savedError;
 
-            const { data: negotiations, error: negotiationsError } = await supabaseClient
+            const {
+                data: negotiations,
+                error: negotiationsError
+            } = await supabaseClient
                 .from('negotiations')
                 .select(`
                     id,
@@ -2588,7 +2652,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (savedBudgetCount > 0) {
-                userSignals.averageSavedBudget = savedBudgetTotal / savedBudgetCount;
+                userSignals.averageSavedBudget =
+                    savedBudgetTotal / savedBudgetCount;
             }
 
             (negotiations || []).forEach(item => {
@@ -2600,17 +2665,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const location = property.location;
 
                 if (type) userSignals.negotiatedTypes.add(type);
-                if (location) userSignals.negotiatedLocations.add(location);
+                if (location) {
+                    userSignals.negotiatedLocations.add(location);
+                }
             });
 
             let scoredProperties = (properties || []).map(property => {
-                const match = calculatePropertyMatchScore(property, preferences, userSignals);
+                const match = calculatePropertyMatchScore(
+                    property,
+                    preferences,
+                    userSignals
+                );
 
                 return {
                     ...property,
                     aiScore: match.score,
                     aiReasons: match.reasons,
-                    aiLabel: getRecommendationLabel(match.score, match.reasons)
+                    aiLabel: getRecommendationLabel(
+                        match.score,
+                        match.reasons
+                    )
                 };
             });
 
@@ -2621,7 +2695,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 preferences.bedrooms !== null;
 
             if (hasStrongPreference) {
-                scoredProperties = scoredProperties.filter(property => property.aiScore >= 15);
+                scoredProperties = scoredProperties.filter(
+                    property => property.aiScore >= 15
+                );
             }
 
             scoredProperties.sort((a, b) => b.aiScore - a.aiScore);
@@ -2657,14 +2733,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (aiSummaryCard && aiSummaryText) {
                 aiSummaryCard.style.display = 'block';
-                aiSummaryText.innerText = 'No available properties matched the current preference combination.';
+                aiSummaryText.innerText =
+                    'No available properties matched the current preference combination.';
             }
 
             return;
         }
 
-        const savedSignalsCount = userSignals.savedTypes.size + userSignals.savedLocations.size;
-        const negotiationSignalsCount = userSignals.negotiatedTypes.size + userSignals.negotiatedLocations.size;
+        const savedSignalsCount =
+            userSignals.savedTypes.size +
+            userSignals.savedLocations.size;
+
+        const negotiationSignalsCount =
+            userSignals.negotiatedTypes.size +
+            userSignals.negotiatedLocations.size;
 
         if (aiSummaryCard && aiSummaryText) {
             aiSummaryCard.style.display = 'block';
@@ -2677,43 +2759,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         smartRecommendationsGrid.innerHTML = recommendations.map(property => {
-            let imageUrl = 'https://via.placeholder.com/400x250?text=No+Image+Available';
+            let imageUrl =
+                'https://via.placeholder.com/400x250?text=No+Image+Available';
 
-            if (property.property_images && property.property_images.length > 0) {
+            if (
+                property.property_images &&
+                property.property_images.length > 0
+            ) {
                 imageUrl = property.property_images[0].storage_path;
-            } else if (Array.isArray(property.images) && property.images.length > 0) {
+            } else if (
+                Array.isArray(property.images) &&
+                property.images.length > 0
+            ) {
                 imageUrl = property.images[0];
             }
 
             const amenities = property.amenities || {};
             const beds = property.bedrooms ?? amenities.beds ?? '-';
             const baths = property.bathrooms ?? amenities.baths ?? '-';
-            const propType = property.type || amenities.type || 'Listing Asset';
+            const propType =
+                property.type || amenities.type || 'Listing Asset';
 
-            const price = Number(property.price_ghs || 0).toLocaleString('en-GH', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            });
+            const price = Number(property.price_ghs || 0).toLocaleString(
+                'en-GH',
+                {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }
+            );
 
             const reasonsText = property.aiReasons
                 .slice(0, 3)
-                .map(reason => reason.replace(/\b\w/g, char => char.toUpperCase()))
+                .map(reason =>
+                    reason.replace(/\b\w/g, character =>
+                        character.toUpperCase()
+                    )
+                )
                 .join(' • ');
 
             return `
                 <div class="property-card" data-id="${property.id}" style="cursor: pointer;">
                     <div class="image-container">
-                        <img src="${imageUrl}" alt="${property.title || 'Recommended Property'}" loading="lazy">
+                        <img
+                            src="${imageUrl}"
+                            alt="${property.title || 'Recommended Property'}"
+                            loading="lazy"
+                        >
 
                         <div class="badge-verified" style="color: #7c3aed;">
-                            <i class="ph ph-sparkle"></i> ${property.aiLabel}
+                            <i class="ph ph-sparkle"></i>
+                            ${property.aiLabel}
                         </div>
                     </div>
 
                     <div class="card-content">
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                             <div class="property-type">${propType}</div>
-                            <span class="status-badge status-accepted">${property.aiScore}% Match</span>
+                            <span class="status-badge status-accepted">
+                                ${property.aiScore}% Match
+                            </span>
                         </div>
 
                         <h3 style="margin: 8px 0; font-size: 1.15rem; font-weight: 600;">
@@ -2721,16 +2825,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         </h3>
 
                         <div class="location" style="display: flex; align-items: center; gap: 4px; color: #64748b; margin-bottom: 12px;">
-                            <i class="ph ph-map-pin"></i> ${property.location || 'Location Unspecified'}
+                            <i class="ph ph-map-pin"></i>
+                            ${property.location || 'Location Unspecified'}
                         </div>
 
                         <div class="features-summary" style="display: flex; gap: 16px; color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
                             <span style="display: flex; align-items: center; gap: 6px;">
-                                <i class="ph ph-bed"></i> ${beds} Bed
+                                <i class="ph ph-bed"></i>
+                                ${beds} Bed
                             </span>
 
                             <span style="display: flex; align-items: center; gap: 6px;">
-                                <i class="ph ph-bathtub"></i> ${baths} Bath
+                                <i class="ph ph-bathtub"></i>
+                                ${baths} Bath
                             </span>
                         </div>
 
@@ -2742,7 +2849,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="price" style="font-size: 1.25rem; font-weight: 700; color: #0d8abc;">
                                 GHS ${price}
                             </div>
-                            <span class="price-period" style="color: #64748b; font-size: 0.9rem;">/ month</span>
+
+                            <span class="price-period" style="color: #64748b; font-size: 0.9rem;">
+                                / month
+                            </span>
                         </div>
 
                         <div style="display: flex; gap: 8px; margin-top: 16px;">
@@ -2760,12 +2870,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    document.addEventListener('click', (e) => {
-        const aiViewBtn = e.target.closest('.ai-view-property-btn');
-        const aiCard = e.target.closest('#smart-recommendations-grid .property-card');
+    document.addEventListener('click', event => {
+        const aiViewBtn = event.target.closest('.ai-view-property-btn');
+        const aiCard = event.target.closest(
+            '#smart-recommendations-grid .property-card'
+        );
 
         if (aiViewBtn) {
-            e.stopPropagation();
+            event.stopPropagation();
 
             const propertyId = aiViewBtn.getAttribute('data-id');
 
@@ -2774,7 +2886,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 property_id: propertyId
             });
 
-            window.location.href = `property-details.html?id=${propertyId}`;
+            window.location.href =
+                `property-details.html?id=${propertyId}`;
+
             return;
         }
 
@@ -2787,13 +2901,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     property_id: propertyId
                 });
 
-                window.location.href = `property-details.html?id=${propertyId}`;
+                window.location.href =
+                    `property-details.html?id=${propertyId}`;
             }
         }
     });
 
-    generateAiMatchBtn?.addEventListener('click', loadSmartRecommendations);
-    refreshRecommendationsBtn?.addEventListener('click', loadSmartRecommendations);
+    generateAiMatchBtn?.addEventListener(
+        'click',
+        loadSmartRecommendations
+    );
+
+    refreshRecommendationsBtn?.addEventListener(
+        'click',
+        loadSmartRecommendations
+    );
 
     window.loadSmartRecommendations = loadSmartRecommendations;
     window.loadTenantNotifications = loadTenantNotifications;
