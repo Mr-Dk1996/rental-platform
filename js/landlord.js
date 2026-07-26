@@ -3,6 +3,7 @@
     // 1. CORE STATE AND DOM REFERENCES
     // ==========================================
     let currentUser = null;
+    let currentUserProfile = null;
     let activeNegotiationId = null;
     let propertyLocationMap = null;
     let propertyLocationMarker = null;
@@ -65,6 +66,7 @@
 
     const landlordPaymentsBody = document.getElementById('landlord-payments-body');
     const refreshLandlordPaymentsBtn = document.getElementById('refresh-landlord-payments-btn');
+    const landlordReceiptRecords = new Map();
 
     document.addEventListener('DOMContentLoaded', () => {
         bindNavigation();
@@ -242,6 +244,8 @@
             if (error) throw error;
 
             if (!profile) return;
+
+            currentUserProfile = profile;
 
             const nameInput = document.getElementById('profile-name');
             const phoneInput = document.getElementById('profile-phone');
@@ -1605,6 +1609,73 @@
                 refreshLandlordPaymentsBtn.innerHTML = originalText;
             }
         });
+
+        landlordPaymentsBody?.addEventListener('click', (event) => {
+            const downloadButton = event.target.closest('.download-landlord-receipt-btn');
+            const printButton = event.target.closest('.print-landlord-receipt-btn');
+            const button = downloadButton || printButton;
+
+            if (!button) return;
+
+            const paymentId = String(button.getAttribute('data-payment-id') || '');
+            const receipt = landlordReceiptRecords.get(paymentId);
+
+            if (!receipt) {
+                alert('This receipt is not ready. Refresh the received payments and try again.');
+                return;
+            }
+
+            if (!window.RentHavenReceipt) {
+                alert('The receipt generator did not load. Refresh the page and try again.');
+                return;
+            }
+
+            try {
+                if (downloadButton) {
+                    window.RentHavenReceipt.download(receipt);
+                } else {
+                    window.RentHavenReceipt.print(receipt);
+                }
+            } catch (error) {
+                alert('Unable to prepare the receipt: ' + error.message);
+            }
+        });
+    }
+
+    function buildLandlordReceiptData(payment, tenant, property, ledger) {
+        return {
+            amount: payment.amount,
+            currency: payment.currency,
+            payment_status: payment.payment_status,
+            payment_environment: payment.payment_environment,
+            payment_reference: payment.payment_reference,
+            payment_channel: payment.payment_channel,
+            paid_at: payment.paid_at || payment.created_at,
+            property_title: property?.title || 'Rental Property',
+            property_location:
+                property?.location ||
+                'Location not specified',
+            tenant_name: tenant?.full_name || 'Tenant',
+            tenant_email: tenant?.email || 'Not provided',
+            tenant_phone:
+                tenant?.phone ||
+                tenant?.phone_number ||
+                'Not provided',
+            landlord_name:
+                currentUserProfile?.full_name ||
+                currentUser?.user_metadata?.full_name ||
+                'Landlord',
+            landlord_email: currentUser?.email || 'Not provided',
+            landlord_phone:
+                currentUserProfile?.phone ||
+                currentUserProfile?.phone_number ||
+                'Not provided',
+            ledger_reference: ledger?.ledger_reference,
+            block_number: ledger?.block_number,
+            current_hash: ledger?.current_hash,
+            hash_algorithm: ledger?.hash_algorithm,
+            ledger_version: ledger?.ledger_version
+        };
     }
 
     function updateLandlordPaymentSummary(payments) {
@@ -1637,7 +1708,7 @@
         if (showLoading && landlordPaymentsBody) {
             landlordPaymentsBody.innerHTML = `
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="landlord-payment-empty">
                             <i class="ph ph-spinner ph-spin"></i>
                             <h3>Loading payments</h3>
@@ -1662,6 +1733,7 @@
                     payment_status,
                     payment_reference,
                     payment_provider,
+                    payment_environment,
                     payment_channel,
                     receipt_url,
                     paid_at,
@@ -1674,6 +1746,7 @@
             if (paymentError) throw paymentError;
 
             const payments = paymentRows || [];
+            landlordReceiptRecords.clear();
 
             const { data: ledgerRows, error: ledgerError } = await supabaseClient
                 .from('payment_ledger')
@@ -1701,7 +1774,7 @@
             if (payments.length === 0) {
                 landlordPaymentsBody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="landlord-payment-empty">
                                 <i class="ph ph-receipt"></i>
                                 <h3>No Received Payments Yet</h3>
@@ -1759,6 +1832,11 @@
                 const statusClass = payment.payment_status === 'paid' ? 'status-accepted' : 'status-pending';
                 const ledger = ledgerMap[payment.id];
 
+                landlordReceiptRecords.set(
+                    String(payment.id),
+                    buildLandlordReceiptData(payment, tenant, property, ledger)
+                );
+
                 return `
                     <tr>
                         <td>
@@ -1812,6 +1890,30 @@
                         </td>
 
                         <td>${datePaid}</td>
+
+                        <td>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button
+                                    type="button"
+                                    class="btn-primary download-landlord-receipt-btn"
+                                    data-payment-id="${payment.id}"
+                                    style="padding: 8px 10px; font-size: 0.76rem;"
+                                >
+                                    <i class="ph ph-download-simple"></i>
+                                    PDF
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="btn-outline print-landlord-receipt-btn"
+                                    data-payment-id="${payment.id}"
+                                    style="padding: 8px 10px; font-size: 0.76rem;"
+                                >
+                                    <i class="ph ph-printer"></i>
+                                    Print
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -1823,7 +1925,7 @@
             if (landlordPaymentsBody) {
                 landlordPaymentsBody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="landlord-payment-empty">
                                 <i class="ph ph-warning-circle"></i>
                                 <h3>Unable to Load Payments</h3>

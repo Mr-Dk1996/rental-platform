@@ -43,6 +43,157 @@ async function readJson(response) {
     }
 }
 
+function getAuthorizationHeader(event) {
+    return (
+        event.headers?.authorization ||
+        event.headers?.Authorization ||
+        ''
+    );
+}
+
+async function getAuthenticatedRequester(event) {
+    const authorization = getAuthorizationHeader(event);
+
+    if (!authorization.toLowerCase().startsWith('bearer ')) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            method: 'GET',
+            headers: {
+                apikey: SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: authorization
+            }
+        });
+
+        if (!response.ok) return null;
+
+        const user = await readJson(response);
+        return user?.id ? user : null;
+    } catch {
+        return null;
+    }
+}
+
+async function getSupabaseRows(path) {
+    const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/${path}`,
+        {
+            method: 'GET',
+            headers: getSupabaseHeaders()
+        }
+    );
+
+    const rows = await readJson(response);
+
+    if (!response.ok) {
+        throw new Error(
+            rows?.message ||
+            rows?.details ||
+            'Unable to retrieve receipt details.'
+        );
+    }
+
+    return Array.isArray(rows) ? rows : [];
+}
+
+async function requesterCanReadReceipt(requester, payment) {
+    if (!requester?.id || !payment) return false;
+
+    if (
+        requester.id === payment.tenant_id ||
+        requester.id === payment.landlord_id
+    ) {
+        return true;
+    }
+
+    const rows = await getSupabaseRows(
+        `users?id=eq.${encodeURIComponent(requester.id)}` +
+        '&select=role&limit=1'
+    );
+
+    return String(rows[0]?.role || '').toLowerCase() === 'admin';
+}
+
+async function getSecureReceiptData(requester, payment, ledgerProof) {
+    if (!(await requesterCanReadReceipt(requester, payment))) {
+        return null;
+    }
+
+    const userIds = [
+        payment.tenant_id,
+        payment.landlord_id
+    ].filter(Boolean);
+
+    const [userRows, propertyRows] = await Promise.all([
+        userIds.length > 0
+            ? getSupabaseRows(
+                `users?id=in.(${userIds.map(encodeURIComponent).join(',')})` +
+                '&select=id,full_name,email,phone,phone_number'
+            )
+            : Promise.resolve([]),
+        payment.property_id
+            ? getSupabaseRows(
+                `properties?id=eq.${encodeURIComponent(payment.property_id)}` +
+                '&select=id,title,location&limit=1'
+            )
+            : Promise.resolve([])
+    ]);
+
+    const userMap = userRows.reduce((map, user) => {
+        map[user.id] = user;
+        return map;
+    }, {});
+    const tenant = userMap[payment.tenant_id] || {};
+    const landlord = userMap[payment.landlord_id] || {};
+    const property = propertyRows[0] || {};
+
+    return {
+        amount: payment.amount,
+        currency: payment.currency || 'GHS',
+        payment_status: payment.payment_status,
+        payment_environment: payment.payment_environment,
+        payment_reference: payment.payment_reference,
+        payment_channel: payment.payment_channel,
+        paid_at: payment.paid_at || payment.created_at,
+        property_title: property.title || 'Rental Property',
+        property_location: property.location || 'Location not specified',
+        tenant_name: tenant.full_name || 'Tenant',
+        tenant_email: tenant.email || 'Not provided',
+        tenant_phone:
+            tenant.phone ||
+            tenant.phone_number ||
+            'Not provided',
+        landlord_name: landlord.full_name || 'Landlord',
+        landlord_email: landlord.email || 'Not provided',
+        landlord_phone:
+            landlord.phone ||
+            landlord.phone_number ||
+            'Not provided',
+        ledger_reference: ledgerProof?.ledger_reference,
+        block_number: ledgerProof?.block_number,
+        current_hash: ledgerProof?.current_hash,
+        hash_algorithm: ledgerProof?.hash_algorithm,
+        ledger_version: ledgerProof?.ledger_version
+    };
+}
+
+function getSafePaymentResponse(payment) {
+    if (!payment) return null;
+
+    return {
+        amount: payment.amount,
+        currency: payment.currency || 'GHS',
+        payment_status: payment.payment_status,
+        payment_environment: payment.payment_environment,
+        payment_reference: payment.payment_reference,
+        payment_channel: payment.payment_channel,
+        paid_at: payment.paid_at || payment.created_at,
+        description: payment.description
+    };
+}
+
 function getPaystackEnvironment(transaction) {
     const transactionDomain = String(transaction?.domain || '').toLowerCase();
 
@@ -262,7 +413,7 @@ exports.handler = async (event) => {
         } catch (ledgerError) {
             return jsonResponse(500, {
                 error: 'Payment was verified, but the blockchain-style ledger proof could not be created.',
-                payment: paidPayment,
+                payment: getSafePaymentResponse(paidPayment),
                 ledger_error: ledgerError.ledgerDetails || ledgerError.message
             });
         }
@@ -272,18 +423,35 @@ exports.handler = async (event) => {
         if (!ledgerProof?.ledger_reference) {
             return jsonResponse(500, {
                 error: 'Payment was verified, but the Blockchain V2 ledger reference is missing.',
-                payment: paidPayment,
+                payment: getSafePaymentResponse(paidPayment),
                 ledger_block_id: ledgerBlockId
             });
+        }
+
+        const requester = await getAuthenticatedRequester(event);
+        let receiptData = null;
+
+        try {
+            receiptData = await getSecureReceiptData(
+                requester,
+                paidPayment,
+                ledgerProof
+            );
+        } catch (receiptError) {
+            console.warn(
+                'Secure receipt details could not be loaded:',
+                receiptError.message
+            );
         }
 
         return jsonResponse(200, {
             message: 'Payment verified and Blockchain V2 ledger proof created successfully.',
             status: 'paid',
-            payment: paidPayment,
+            payment: getSafePaymentResponse(paidPayment),
             ledger_block_id: ledgerBlockId,
             ledger_reference: ledgerProof.ledger_reference,
-            ledger_proof: ledgerProof
+            ledger_proof: ledgerProof,
+            receipt_data: receiptData
         });
     } catch (error) {
         return jsonResponse(400, {

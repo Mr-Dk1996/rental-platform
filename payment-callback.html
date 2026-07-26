@@ -119,6 +119,10 @@
             text-decoration: none;
         }
 
+        .callback-actions button {
+            cursor: pointer;
+        }
+
         @keyframes spin {
             to {
                 transform: rotate(360deg);
@@ -170,11 +174,32 @@
         </div>
 
         <div class="callback-actions">
+            <button
+                type="button"
+                class="btn-primary"
+                id="download-payment-receipt-btn"
+                style="display: none;"
+            >
+                <i class="ph ph-download-simple"></i>
+                Download PDF Receipt
+            </button>
+            <button
+                type="button"
+                class="btn-outline"
+                id="print-payment-receipt-btn"
+                style="display: none;"
+            >
+                <i class="ph ph-printer"></i>
+                Print Receipt
+            </button>
             <a href="tenant-dashboard.html" class="btn-primary">Go to Dashboard</a>
             <a href="index.html" class="btn-outline">Back Home</a>
         </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/payment-receipt.js?v=receipt-v2"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
         const reference = params.get('reference');
@@ -187,6 +212,9 @@
         const ledgerReferenceValue = document.getElementById('ledger-reference-value');
         const ledgerBlockValue = document.getElementById('ledger-block-value');
         const ledgerHashValue = document.getElementById('ledger-hash-value');
+        const downloadReceiptBtn = document.getElementById('download-payment-receipt-btn');
+        const printReceiptBtn = document.getElementById('print-payment-receipt-btn');
+        let verifiedReceiptData = null;
 
         function showPaymentReference() {
             if (!reference) return;
@@ -224,6 +252,76 @@
             statusMessage.textContent = message || 'We could not verify the payment. Please check your dashboard or contact support.';
         }
 
+        function prepareReceiptData(result) {
+            const payment = result?.payment || {};
+            const ledger = result?.ledger_proof || {};
+
+            return result?.receipt_data || {
+                amount: payment.amount,
+                currency: payment.currency || 'GHS',
+                payment_status: payment.payment_status || result?.status,
+                payment_environment: payment.payment_environment,
+                payment_reference: payment.payment_reference || reference,
+                payment_channel: payment.payment_channel,
+                paid_at: payment.paid_at || payment.created_at,
+                property_title: String(payment.description || '')
+                    .replace(/^Rent payment for\s+/i, '') || 'Rental Property',
+                tenant_name: 'Tenant',
+                landlord_name: 'Landlord',
+                ledger_reference:
+                    ledger.ledger_reference ||
+                    result?.ledger_reference,
+                block_number: ledger.block_number,
+                current_hash: ledger.current_hash,
+                hash_algorithm: ledger.hash_algorithm,
+                ledger_version: ledger.ledger_version
+            };
+        }
+
+        function enableReceiptActions(result) {
+            verifiedReceiptData = prepareReceiptData(result);
+            downloadReceiptBtn.style.display = 'inline-flex';
+            printReceiptBtn.style.display = 'inline-flex';
+        }
+
+        downloadReceiptBtn.addEventListener('click', () => {
+            if (!verifiedReceiptData || !window.RentHavenReceipt) return;
+
+            try {
+                window.RentHavenReceipt.download(verifiedReceiptData);
+            } catch (error) {
+                alert('Unable to download the receipt: ' + error.message);
+            }
+        });
+
+        printReceiptBtn.addEventListener('click', () => {
+            if (!verifiedReceiptData || !window.RentHavenReceipt) return;
+
+            try {
+                window.RentHavenReceipt.print(verifiedReceiptData);
+            } catch (error) {
+                alert('Unable to print the receipt: ' + error.message);
+            }
+        });
+
+        async function getVerificationHeaders() {
+            try {
+                const {
+                    data: { session }
+                } = await supabaseClient.auth.getSession();
+
+                if (session?.access_token) {
+                    return {
+                        Authorization: `Bearer ${session.access_token}`
+                    };
+                }
+            } catch (error) {
+                console.warn('Receipt identity details are unavailable:', error.message);
+            }
+
+            return {};
+        }
+
         async function verifyPayment() {
             showPaymentReference();
 
@@ -233,7 +331,11 @@
             }
 
             try {
-                const response = await fetch(`/.netlify/functions/verify-payment?reference=${encodeURIComponent(reference)}`);
+                const headers = await getVerificationHeaders();
+                const response = await fetch(
+                    `/.netlify/functions/verify-payment?reference=${encodeURIComponent(reference)}`,
+                    { headers }
+                );
                 const result = await response.json();
 
                 if (!response.ok || result.status !== 'paid') {
@@ -242,6 +344,7 @@
                 }
 
                 showLedgerProof(result);
+                enableReceiptActions(result);
                 setSuccess('Your rent payment has been confirmed and a deterministic Blockchain V2 ledger reference has been generated.');
             } catch (error) {
                 setError(error.message);

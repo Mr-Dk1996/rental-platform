@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     let activeNegotiationId = null;
     let currentUser = null;
+    let currentUserProfile = null;
     let activeChatChannel = null;
     let tenantActivityTimer = null;
     let browsePersonalizationTimer = null;
@@ -296,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dbError) throw dbError;
 
             if (profile) {
+                currentUserProfile = profile;
                 const fullName = profile.full_name || 'Tenant Account';
                 const role = profile.role || 'Tenant';
                 const primaryPhone = profile.phone || profile.phone_number || '';
@@ -1736,6 +1738,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentLedgerCount = document.getElementById('payment-ledger-count');
     const tenantPaymentCard = document.getElementById('tenant-payment-card');
     const tenantPaymentHistory = document.getElementById('tenant-payment-history');
+    const tenantReceiptRecords = new Map();
 
     function formatGhsAmount(value) {
         return Number(value || 0).toLocaleString('en-GH', {
@@ -1851,6 +1854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     payment_status,
                     payment_reference,
                     payment_provider,
+                    payment_environment,
                     payment_channel,
                     receipt_url,
                     paid_at,
@@ -1893,11 +1897,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (landlordIds.length > 0) {
                 const { data: landlordRows } = await supabaseClient
                     .from('users')
-                    .select('id, full_name')
+                    .select('id, full_name, email, phone, phone_number')
                     .in('id', landlordIds);
 
                 landlordMap = (landlordRows || []).reduce((map, item) => {
-                    map[item.id] = item.full_name;
+                    map[item.id] = item;
                     return map;
                 }, {});
             }
@@ -2071,8 +2075,56 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    function getTenantReceiptProfile() {
+        return {
+            name:
+                currentUserProfile?.full_name ||
+                currentUser?.user_metadata?.full_name ||
+                'Tenant',
+            email: currentUser?.email || 'Not provided',
+            phone:
+                currentUserProfile?.phone ||
+                currentUserProfile?.phone_number ||
+                'Not provided'
+        };
+    }
+
+    function buildTenantReceiptData(payment, landlord, ledger) {
+        const tenant = getTenantReceiptProfile();
+
+        return {
+            amount: payment.amount,
+            currency: payment.currency,
+            payment_status: payment.payment_status,
+            payment_environment: payment.payment_environment,
+            payment_reference: payment.payment_reference,
+            payment_channel: payment.payment_channel,
+            paid_at: payment.paid_at || payment.created_at,
+            property_title: payment.properties?.title || 'Rental Property',
+            property_location:
+                payment.properties?.location ||
+                'Location not specified',
+            tenant_name: tenant.name,
+            tenant_email: tenant.email,
+            tenant_phone: tenant.phone,
+            landlord_name: landlord?.full_name || 'Landlord',
+            landlord_email: landlord?.email || 'Not provided',
+            landlord_phone:
+                landlord?.phone ||
+                landlord?.phone_number ||
+                'Not provided',
+            ledger_reference: ledger?.ledger_reference,
+            block_number: ledger?.block_number,
+            current_hash: ledger?.current_hash,
+            hash_algorithm: ledger?.hash_algorithm,
+            ledger_version: ledger?.ledger_version
+        };
+    }
+
     function renderTenantPaymentHistory(payments, landlordMap = {}, ledgerMap = {}) {
         if (!tenantPaymentHistory) return;
+
+        tenantReceiptRecords.clear();
 
         if (!payments || payments.length === 0) {
             tenantPaymentHistory.innerHTML = `
@@ -2087,10 +2139,20 @@ document.addEventListener('DOMContentLoaded', () => {
         tenantPaymentHistory.innerHTML = payments.map(payment => {
             const propertyTitle = payment.properties?.title || 'Rental Payment';
             const propertyLocation = payment.properties?.location || 'Location not specified';
-            const landlordName = landlordMap[payment.landlord_id] || 'Landlord';
+            const landlord = landlordMap[payment.landlord_id] || {};
+            const landlordName = landlord.full_name || 'Landlord';
             const reference = payment.payment_reference || 'No reference';
             const dateValue = payment.paid_at || payment.created_at;
             const ledger = ledgerMap[payment.id];
+            const isPaid =
+                String(payment.payment_status || '').toLowerCase() === 'paid';
+
+            if (isPaid) {
+                tenantReceiptRecords.set(
+                    String(payment.id),
+                    buildTenantReceiptData(payment, landlord, ledger)
+                );
+            }
 
             return `
                 <div class="payment-history-item">
@@ -2119,14 +2181,71 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p>Date: ${formatPaymentDate(dateValue)}</p>
 
                     ${
+                        isPaid
+                            ? `
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                                    <button
+                                        type="button"
+                                        class="btn-primary download-tenant-receipt-btn"
+                                        data-payment-id="${payment.id}"
+                                    >
+                                        <i class="ph ph-download-simple"></i>
+                                        Download PDF
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn-outline print-tenant-receipt-btn"
+                                        data-payment-id="${payment.id}"
+                                    >
+                                        <i class="ph ph-printer"></i>
+                                        Print Receipt
+                                    </button>
+                                </div>
+                            `
+                            : ''
+                    }
+
+                    ${
                         payment.receipt_url
-                            ? `<a href="${payment.receipt_url}" target="_blank" rel="noopener" class="btn-outline" style="margin-top: 8px; display: inline-flex;">View Receipt</a>`
+                            ? `<a href="${payment.receipt_url}" target="_blank" rel="noopener" class="btn-outline" style="margin-top: 8px; display: inline-flex;">View Paystack Receipt</a>`
                             : ''
                     }
                 </div>
             `;
         }).join('');
     }
+
+    tenantPaymentHistory?.addEventListener('click', (event) => {
+        const downloadButton = event.target.closest('.download-tenant-receipt-btn');
+        const printButton = event.target.closest('.print-tenant-receipt-btn');
+        const button = downloadButton || printButton;
+
+        if (!button) return;
+
+        const paymentId = String(button.getAttribute('data-payment-id') || '');
+        const receipt = tenantReceiptRecords.get(paymentId);
+
+        if (!receipt) {
+            alert('This receipt is not ready. Refresh the payment history and try again.');
+            return;
+        }
+
+        if (!window.RentHavenReceipt) {
+            alert('The receipt generator did not load. Refresh the page and try again.');
+            return;
+        }
+
+        try {
+            if (downloadButton) {
+                window.RentHavenReceipt.download(receipt);
+            } else {
+                window.RentHavenReceipt.print(receipt);
+            }
+        } catch (error) {
+            alert('Unable to prepare the receipt: ' + error.message);
+        }
+    });
 
     async function startTenantRentPayment(button) {
         if (!button) return;
