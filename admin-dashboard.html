@@ -179,6 +179,24 @@
             font-weight: 800;
         }
 
+        .ledger-summary-card .summary-amount {
+            margin: 7px 0 0;
+            color: #64748b;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .payment-summary-note {
+            margin: -4px 0 20px;
+            padding: 12px 15px;
+            border: 1px solid #bae6fd;
+            border-radius: 12px;
+            background: #f0f9ff;
+            color: #075985;
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }
+
         .ledger-health-card {
             background: linear-gradient(135deg, #0f172a, #0d8abc);
             color: #ffffff;
@@ -564,7 +582,7 @@
                     >
                         <img
                             id="topbar-avatar"
-                            src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff"
+                            src="images/default-avatar.svg"
                             alt="Admin Avatar"
                             style="width: 100%; height: 100%; object-fit: cover;"
                         >
@@ -789,8 +807,36 @@
                             <div class="ledger-icon">
                                 <i class="ph ph-receipt"></i>
                             </div>
-                            <span>Paid Transactions</span>
+                            <span>All Paid Transactions</span>
                             <h3 id="admin-paid-payments-count">0</h3>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-currency-circle-dollar"></i>
+                            </div>
+                            <span>All Paid Amount</span>
+                            <h3 id="admin-total-paid-amount">GHS 0.00</h3>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-flask"></i>
+                            </div>
+                            <span>Test Transactions</span>
+                            <h3 id="admin-test-paid-count">0</h3>
+                            <p class="summary-amount" id="admin-test-paid-amount">GHS 0.00</p>
+                        </div>
+
+                        <div class="ledger-summary-card">
+                            <div class="ledger-icon">
+                                <i class="ph ph-bank"></i>
+                            </div>
+                            <span>Live Transactions</span>
+                            <h3 id="admin-live-paid-count">0</h3>
+                            <p class="summary-amount">
+                                Live Revenue: <strong id="admin-live-paid-amount">GHS 0.00</strong>
+                            </p>
                         </div>
 
                         <div class="ledger-summary-card">
@@ -803,20 +849,16 @@
 
                         <div class="ledger-summary-card">
                             <div class="ledger-icon">
-                                <i class="ph ph-currency-circle-dollar"></i>
-                            </div>
-                            <span>Total Paid Amount</span>
-                            <h3 id="admin-total-paid-amount">GHS 0.00</h3>
-                        </div>
-
-                        <div class="ledger-summary-card">
-                            <div class="ledger-icon">
                                 <i class="ph ph-shield-check"></i>
                             </div>
                             <span>Ledger Status</span>
                             <h3 id="admin-ledger-status-text">Checking</h3>
                         </div>
                     </div>
+
+                    <p class="payment-summary-note" id="admin-payment-summary-note">
+                        Loading payment environment summary...
+                    </p>
 
                     <div class="ledger-health-card">
                         <div>
@@ -888,6 +930,7 @@
                                         <th>Block</th>
                                         <th>Ledger Reference</th>
                                         <th>Payment Reference</th>
+                                        <th>Environment</th>
                                         <th>Amount</th>
                                         <th>Tenant</th>
                                         <th>Landlord</th>
@@ -900,7 +943,7 @@
                                 </thead>
                                 <tbody id="admin-payment-ledger-body">
                                     <tr>
-                                        <td colspan="11">
+                                        <td colspan="12">
                                             <div class="ledger-empty-state">
                                                 <i class="ph ph-spinner ph-spin"></i>
                                                 <h3>Loading payment ledger</h3>
@@ -1021,7 +1064,7 @@
                         <div class="profile-header-card" style="display: flex; align-items: center; gap: 20px; background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                             <img
                                 id="profile-avatar-display"
-                                src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff&size=80"
+                                src="images/default-avatar.svg"
                                 alt="Avatar"
                                 style="border-radius: 50%; width: 80px; height: 80px; object-fit: cover;"
                             >
@@ -1093,6 +1136,6 @@
     </div>
 
     <script src="js/supabase-config.js"></script>
-    <script src="js/admin.js?v=blockchain-v2"></script>
+    <script src="js/admin.js?v=admin-payments-v1"></script>
 </body>
 </html>

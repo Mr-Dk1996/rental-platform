@@ -43,6 +43,21 @@ async function readJson(response) {
     }
 }
 
+function getPaystackEnvironment(transaction) {
+    const transactionDomain = String(transaction?.domain || '').toLowerCase();
+
+    if (transactionDomain === 'live' || transactionDomain === 'test') {
+        return transactionDomain;
+    }
+
+    const key = String(PAYSTACK_SECRET_KEY || '').toLowerCase();
+
+    if (key.startsWith('sk_live_')) return 'live';
+    if (key.startsWith('sk_test_')) return 'test';
+
+    return 'unknown';
+}
+
 async function findPaymentByReference(reference) {
     const response = await fetch(
         `${SUPABASE_URL}/rest/v1/payments` +
@@ -122,6 +137,7 @@ async function updatePaymentAsPaid(reference, transaction) {
             headers: getSupabaseHeaders('return=representation'),
             body: JSON.stringify({
                 payment_status: 'paid',
+                payment_environment: getPaystackEnvironment(transaction),
                 payment_channel: transaction.channel || null,
                 receipt_url: transaction.receipt_url || null,
                 paid_at: new Date(

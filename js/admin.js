@@ -4,6 +4,7 @@
 
     let cachedUsers = [];
     let cachedProperties = [];
+    let cachedPaymentSummary = null;
 
     const usersList = document.getElementById('admin-users-list');
     const propertiesList = document.getElementById('admin-properties-list');
@@ -115,6 +116,22 @@
                 <i class="ph ${icon}"></i> ${text}
             </span>
         `;
+    }
+
+    function renderPaymentEnvironment(value) {
+        const environment = String(value || 'unknown').toLowerCase();
+        const label = environment === 'live'
+            ? 'Live'
+            : environment === 'test'
+                ? 'Test'
+                : 'Unknown';
+        const statusClass = environment === 'live'
+            ? 'status-accepted'
+            : environment === 'test'
+                ? 'status-pending'
+                : 'status-rejected';
+
+        return `<span class="status-badge ${statusClass}">${label}</span>`;
     }
 
     function bindNavigation() {
@@ -289,8 +306,7 @@
         const phone = currentProfile?.phone || currentProfile?.phone_number || '';
         const phoneAlt = currentProfile?.phone_alt || '';
 
-        const encodedName = encodeURIComponent(fullName);
-        const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodedName}&background=0D8ABC&color=fff&size=80`;
+        const fallbackAvatarUrl = 'images/default-avatar.svg';
         const avatarUrl = currentProfile?.profile_photo_url || fallbackAvatarUrl;
 
         const topbarAvatar = document.getElementById('topbar-avatar');
@@ -302,8 +318,21 @@
         const phoneInput = document.getElementById('profile-phone');
         const phoneAltInput = document.getElementById('profile-phone-alt');
 
-        if (topbarAvatar) topbarAvatar.src = avatarUrl;
-        if (profileAvatar) profileAvatar.src = avatarUrl;
+        if (topbarAvatar) {
+            topbarAvatar.onerror = () => {
+                topbarAvatar.onerror = null;
+                topbarAvatar.src = fallbackAvatarUrl;
+            };
+            topbarAvatar.src = avatarUrl;
+        }
+
+        if (profileAvatar) {
+            profileAvatar.onerror = () => {
+                profileAvatar.onerror = null;
+                profileAvatar.src = fallbackAvatarUrl;
+            };
+            profileAvatar.src = avatarUrl;
+        }
         if (displayName) displayName.innerText = fullName;
         if (welcomeMessage) welcomeMessage.innerText = `Welcome, ${fullName}`;
 
@@ -790,12 +819,54 @@
         }
     }
 
+    async function loadAdminPaymentSummary() {
+        const { data, error } = await supabaseClient
+            .rpc('get_admin_payment_summary');
+
+        if (error) throw error;
+
+        const summary = Array.isArray(data) ? data[0] : data;
+
+        cachedPaymentSummary = {
+            total_paid_transactions: Number(summary?.total_paid_transactions || 0),
+            total_paid_amount: Number(summary?.total_paid_amount || 0),
+            test_paid_transactions: Number(summary?.test_paid_transactions || 0),
+            test_paid_amount: Number(summary?.test_paid_amount || 0),
+            live_paid_transactions: Number(summary?.live_paid_transactions || 0),
+            live_paid_amount: Number(summary?.live_paid_amount || 0),
+            unknown_paid_transactions: Number(summary?.unknown_paid_transactions || 0),
+            unknown_paid_amount: Number(summary?.unknown_paid_amount || 0),
+            ledger_blocks: Number(summary?.ledger_blocks || 0)
+        };
+
+        setText('admin-paid-payments-count', cachedPaymentSummary.total_paid_transactions);
+        setText('admin-total-paid-amount', `GHS ${formatMoney(cachedPaymentSummary.total_paid_amount)}`);
+        setText('admin-test-paid-count', cachedPaymentSummary.test_paid_transactions);
+        setText('admin-test-paid-amount', `GHS ${formatMoney(cachedPaymentSummary.test_paid_amount)}`);
+        setText('admin-live-paid-count', cachedPaymentSummary.live_paid_transactions);
+        setText('admin-live-paid-amount', `GHS ${formatMoney(cachedPaymentSummary.live_paid_amount)}`);
+        setText('admin-ledger-blocks-count', cachedPaymentSummary.ledger_blocks);
+
+        const summaryNote = document.getElementById('admin-payment-summary-note');
+
+        if (summaryNote) {
+            const unknownCount = cachedPaymentSummary.unknown_paid_transactions;
+            const unknownAmount = cachedPaymentSummary.unknown_paid_amount;
+
+            summaryNote.innerHTML = unknownCount > 0
+                ? `<strong>${unknownCount}</strong> paid transaction(s), worth <strong>GHS ${formatMoney(unknownAmount)}</strong>, could not be classified. Test payments are demonstration activity; only Live Revenue represents actual money received.`
+                : 'Test payments are demonstration activity. Only the Live Revenue card represents actual money received through Paystack live mode.';
+        }
+
+        return cachedPaymentSummary;
+    }
+
     async function loadPaymentLedger() {
     if (!adminPaymentLedgerBody) return;
 
     adminPaymentLedgerBody.innerHTML = `
         <tr>
-            <td colspan="11">
+            <td colspan="12">
                 <div class="ledger-empty-state">
                     <i class="ph ph-spinner ph-spin"></i>
                     <h3>Loading payment ledger</h3>
@@ -806,28 +877,18 @@
     `;
 
     try {
-        const { data: paidPayments, error: paidPaymentsError } = await supabaseClient
-            .from('payments')
-            .select('id, amount, payment_status')
-            .eq('payment_status', 'paid');
+        const [paymentSummary, ledgerResult] = await Promise.all([
+            loadAdminPaymentSummary(),
+            supabaseClient.rpc('get_admin_payment_ledger')
+        ]);
 
-        if (paidPaymentsError) throw paidPaymentsError;
-
-        const { data: ledgerRows, error: ledgerError } = await supabaseClient
-            .rpc('get_admin_payment_ledger');
+        const { data: ledgerRows, error: ledgerError } = ledgerResult;
 
         if (ledgerError) throw ledgerError;
 
         const ledgers = ledgerRows || [];
-        const paidRows = paidPayments || [];
 
-        const totalPaidAmount = paidRows.reduce((sum, payment) => {
-            return sum + Number(payment.amount || 0);
-        }, 0);
-
-        setText('admin-paid-payments-count', paidRows.length);
-        setText('admin-ledger-blocks-count', ledgers.length);
-        setText('admin-total-paid-amount', `GHS ${formatMoney(totalPaidAmount)}`);
+        setText('admin-ledger-blocks-count', paymentSummary.ledger_blocks);
 
         if (ledgers.length === 0) {
             setText('admin-ledger-status-text', 'No Blocks');
@@ -835,7 +896,7 @@
 
             adminPaymentLedgerBody.innerHTML = `
                 <tr>
-                    <td colspan="11">
+                    <td colspan="12">
                         <div class="ledger-empty-state">
                             <i class="ph ph-link-simple-break"></i>
                             <h3>No Ledger Blocks Yet</h3>
@@ -862,6 +923,10 @@
                         <span class="ledger-reference" style="color:#475569;">
                             ${row.payment_reference || 'N/A'}
                         </span>
+                    </td>
+
+                    <td>
+                        ${renderPaymentEnvironment(row.payment_environment)}
                     </td>
 
                     <td>
@@ -910,7 +975,7 @@
 
         adminPaymentLedgerBody.innerHTML = `
             <tr>
-                <td colspan="11">
+                <td colspan="12">
                     <div class="ledger-empty-state">
                         <i class="ph ph-warning-circle"></i>
                         <h3>Unable to Load Ledger</h3>
@@ -1095,31 +1160,14 @@
             const pending = document.getElementById('stat-pending-negotiations')?.innerText || '0';
             const leases = document.getElementById('stat-active-leases')?.innerText || '0';
 
-            let paidPayments = '0';
-            let ledgerBlocks = '0';
-            let totalPaidAmount = 'GHS 0.00';
-
-            try {
-                const { data: payments } = await supabaseClient
-                    .from('payments')
-                    .select('amount, payment_status')
-                    .eq('payment_status', 'paid');
-
-                const { data: ledgers } = await supabaseClient
-                    .from('payment_ledger')
-                    .select('id');
-
-                const paidRows = payments || [];
-                const ledgerRows = ledgers || [];
-
-                paidPayments = String(paidRows.length);
-                ledgerBlocks = String(ledgerRows.length);
-
-                const total = paidRows.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-                totalPaidAmount = `GHS ${formatMoney(total)}`;
-            } catch (paymentReportError) {
-                console.warn('Payment report values skipped:', paymentReportError.message);
-            }
+            const paymentSummary = await loadAdminPaymentSummary();
+            const paidPayments = String(paymentSummary.total_paid_transactions);
+            const ledgerBlocks = String(paymentSummary.ledger_blocks);
+            const totalPaidAmount = `GHS ${formatMoney(paymentSummary.total_paid_amount)}`;
+            const testPayments = String(paymentSummary.test_paid_transactions);
+            const testPaidAmount = `GHS ${formatMoney(paymentSummary.test_paid_amount)}`;
+            const livePayments = String(paymentSummary.live_paid_transactions);
+            const livePaidAmount = `GHS ${formatMoney(paymentSummary.live_paid_amount)}`;
 
             const reportDate = document.getElementById('admin-report-date');
             const observation = document.getElementById('admin-report-observation');
@@ -1183,6 +1231,26 @@
                     <span>Total Paid Amount</span>
                     <strong style="font-size:1.1rem;">${totalPaidAmount}</strong>
                 </div>
+
+                <div class="report-stat-item">
+                    <span>Test Transactions</span>
+                    <strong>${testPayments}</strong>
+                </div>
+
+                <div class="report-stat-item">
+                    <span>Test Payment Total</span>
+                    <strong style="font-size:1.1rem;">${testPaidAmount}</strong>
+                </div>
+
+                <div class="report-stat-item">
+                    <span>Live Transactions</span>
+                    <strong>${livePayments}</strong>
+                </div>
+
+                <div class="report-stat-item">
+                    <span>Actual Live Revenue</span>
+                    <strong style="font-size:1.1rem;">${livePaidAmount}</strong>
+                </div>
             `;
 
             if (observation) {
@@ -1192,6 +1260,8 @@
                 const pendingCount = Number(pending) || 0;
                 const paidCount = Number(paidPayments) || 0;
                 const ledgerCount = Number(ledgerBlocks) || 0;
+                const testPaidCount = Number(testPayments) || 0;
+                const livePaidCount = Number(livePayments) || 0;
 
                 let observationText = '';
 
@@ -1202,6 +1272,7 @@
                     observationText =
                         `The platform currently records ${userCount} user account(s), ${propertyCount} property listing(s), ${pendingCount} pending negotiation(s), and ${leaseCount} active lease record(s). ` +
                         `The system has also recorded ${paidCount} paid rent transaction(s) and ${ledgerCount} blockchain-style ledger block(s). ` +
+                        `Of the paid transactions, ${testPaidCount} are Paystack test-mode demonstrations and ${livePaidCount} are live-mode transactions. ` +
                         'This indicates that the Admin Dashboard is successfully monitoring users, listings, negotiations, accepted rental agreements, payments, and blockchain ledger evidence.';
                 }
 

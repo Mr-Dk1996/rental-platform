@@ -61,6 +61,21 @@ const getSupabaseHeaders = (serviceRoleKey) => {
     };
 };
 
+const getPaystackEnvironment = (transaction, paystackSecretKey) => {
+    const transactionDomain = String(transaction?.domain || "").toLowerCase();
+
+    if (transactionDomain === "live" || transactionDomain === "test") {
+        return transactionDomain;
+    }
+
+    const key = String(paystackSecretKey || "").toLowerCase();
+
+    if (key.startsWith("sk_live_")) return "live";
+    if (key.startsWith("sk_test_")) return "test";
+
+    return "unknown";
+};
+
 const verifyPaystackTransaction = async (reference, paystackSecretKey) => {
     const response = await fetch(
         `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
@@ -100,9 +115,16 @@ const findPaymentByReference = async (reference, supabaseUrl, serviceRoleKey) =>
     return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 };
 
-const updatePaymentAsPaid = async (reference, transaction, supabaseUrl, serviceRoleKey) => {
+const updatePaymentAsPaid = async (
+    reference,
+    transaction,
+    supabaseUrl,
+    serviceRoleKey,
+    paystackSecretKey
+) => {
     const payload = {
         payment_status: "paid",
+        payment_environment: getPaystackEnvironment(transaction, paystackSecretKey),
         payment_channel: transaction.channel || null,
         receipt_url: transaction.receipt_url || null,
         paid_at: transaction.paid_at || new Date().toISOString()
@@ -324,7 +346,8 @@ exports.handler = async (event) => {
             reference,
             transaction,
             SUPABASE_URL,
-            SUPABASE_SERVICE_ROLE_KEY
+            SUPABASE_SERVICE_ROLE_KEY,
+            PAYSTACK_SECRET_KEY
         );
 
         const finalPayment = paidPayment || existingPayment;
