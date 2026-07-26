@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title description">
+  <title id="title">Default RentHaven user avatar</title>
+  <desc id="description">A white user silhouette on a blue circular background.</desc>
+  <circle cx="80" cy="80" r="80" fill="#0d8abc"/>
+  <circle cx="80" cy="61" r="29" fill="#ffffff"/>
+  <path d="M29 142c5-31 24-49 51-49s46 18 51 49" fill="#ffffff"/>
+</svg>

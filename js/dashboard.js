@@ -20,6 +20,94 @@ document.addEventListener('DOMContentLoaded', () => {
     const GOOD_LOCATION_ACCURACY_METERS = 100;
     const MAX_USABLE_LOCATION_ACCURACY_METERS = 1500;
     const LOCATION_SAMPLE_WINDOW_MS = 18000;
+    const LOCAL_DEFAULT_AVATAR_URL = 'images/default-avatar.svg';
+
+    let authenticatedUserRequest = null;
+    let authenticatedUserValidated = false;
+    let loginRedirectStarted = false;
+
+    function redirectToLogin() {
+        if (loginRedirectStarted) return;
+
+        loginRedirectStarted = true;
+        window.location.replace('index.html?auth=required');
+    }
+
+    async function getAuthenticatedUser({ redirectIfMissing = false } = {}) {
+        if (currentUser?.id && authenticatedUserValidated) {
+            return currentUser;
+        }
+
+        if (!authenticatedUserRequest) {
+            authenticatedUserRequest = (async () => {
+                /*
+                 * getSession() waits for Supabase to restore the browser session
+                 * before any protected dashboard request is allowed to run.
+                 */
+                const {
+                    data: { session },
+                    error: sessionError
+                } = await supabaseClient.auth.getSession();
+
+                if (sessionError) {
+                    throw sessionError;
+                }
+
+                if (!session?.user) {
+                    return null;
+                }
+
+                const {
+                    data: { user },
+                    error: userError
+                } = await supabaseClient.auth.getUser();
+
+                if (userError) {
+                    throw userError;
+                }
+
+                currentUser = user || session.user;
+                authenticatedUserValidated = true;
+                return currentUser;
+            })();
+        }
+
+        try {
+            const user = await authenticatedUserRequest;
+
+            if (!user && redirectIfMissing) {
+                redirectToLogin();
+            }
+
+            return user;
+        } finally {
+            authenticatedUserRequest = null;
+        }
+    }
+
+    function setAvatarImage(imageElement, requestedUrl = null) {
+        if (!imageElement) return;
+
+        imageElement.onerror = () => {
+            imageElement.onerror = null;
+            imageElement.src = LOCAL_DEFAULT_AVATAR_URL;
+        };
+
+        imageElement.src = requestedUrl || LOCAL_DEFAULT_AVATAR_URL;
+    }
+
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+            currentUser = session.user;
+            return;
+        }
+
+        if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            authenticatedUserValidated = false;
+            redirectToLogin();
+        }
+    });
 
     // ==========================================
     // 1. NAVIGATION LOGIC
@@ -185,15 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function loadUserProfile() {
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    async function loadUserProfile(authenticatedUser = null) {
+        const user = authenticatedUser || await getAuthenticatedUser();
 
-        if (authError || !user) {
-            console.error('No valid user session found.');
-            return;
-        }
-
-        currentUser = user;
+        if (!user) return;
 
         if (profileCurrentEmailInput) {
             profileCurrentEmailInput.value = user.email || '';
@@ -228,19 +311,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (profileMenuName) profileMenuName.innerText = fullName;
                 if (profileMenuRole) profileMenuRole.innerText = `${role} Account`;
 
-                const encodedName = encodeURIComponent(fullName);
-                const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodedName}&background=0D8ABC&color=fff&size=80`;
-                const avatarUrl = profile.profile_photo_url || fallbackAvatarUrl;
+                const avatarUrl =
+                    profile.profile_photo_url ||
+                    LOCAL_DEFAULT_AVATAR_URL;
 
-                if (displayAvatar) displayAvatar.src = avatarUrl;
-                if (topbarAvatar) topbarAvatar.src = avatarUrl;
+                setAvatarImage(displayAvatar, avatarUrl);
+                setAvatarImage(topbarAvatar, avatarUrl);
             }
         } catch (err) {
             console.error('Error loading profile:', err.message);
         }
     }
 
-    loadUserProfile();
     bindProfileMenu();
 
     profileForm?.addEventListener('submit', async (e) => {
@@ -3000,9 +3082,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        const user = await getAuthenticatedUser();
 
-        if (authError || !user) {
+        if (!user) {
             if (isCurrentRequest()) {
                 smartRecommendationsGrid.innerHTML = `
                     <div class="empty-state" style="grid-column: 1 / -1;">
@@ -3369,13 +3451,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // INITIAL LOAD
     // ==========================================
-    loadNegotiations();
-    loadTenantLeases();
-    loadTenantPayments();
-    loadSavedProperties();
-    loadTenantNotifications();
+    async function initializeTenantDashboard() {
+        try {
+            const user = await getAuthenticatedUser({
+                redirectIfMissing: true
+            });
 
-    if (typeof loadSmartRecommendations === 'function') {
-        loadSmartRecommendations({ requestLocation: true });
+            if (!user) return;
+
+            await loadUserProfile(user);
+
+            await Promise.allSettled([
+                loadNegotiations(),
+                loadTenantLeases(),
+                loadTenantPayments(),
+                loadSavedProperties(),
+                loadTenantNotifications()
+            ]);
+
+            if (typeof loadSmartRecommendations === 'function') {
+                await loadSmartRecommendations({
+                    requestLocation: true
+                });
+            }
+        } catch (error) {
+            console.error(
+                'Unable to initialize the tenant dashboard:',
+                error
+            );
+
+            alert(
+                'Your login session could not be verified. Please log in again.'
+            );
+
+            redirectToLogin();
+        }
     }
+
+    initializeTenantDashboard();
 });
