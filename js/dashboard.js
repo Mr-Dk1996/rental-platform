@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeChatChannel = null;
     let tenantActivityTimer = null;
     let browsePersonalizationTimer = null;
+    let preferredLocationMap = null;
+    let preferredLocationMarker = null;
+    let aiPreferencesLoadedForUser = null;
+    let preferredLocationRequestPromise = null;
+
+    const GHANA_MAP_CENTER = [7.9465, -1.0232];
+    const LOCATION_PROMPT_SESSION_KEY = 'renthaven-location-prompted';
 
     // ==========================================
     // 1. NAVIGATION LOGIC
@@ -41,6 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sectionId === 'recommendations' && typeof loadSmartRecommendations === 'function') {
             loadSmartRecommendations();
+
+            setTimeout(() => {
+                preferredLocationMap?.invalidateSize();
+            }, 120);
         }
 
         if (focusElementId) {
@@ -682,7 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, true);
     }
 
-        async function getTenantPersonalizationSignals() {
+    async function getTenantPersonalizationSignals() {
         const signals = {
             searchedLocations: new Set(),
             filteredTypes: new Set(),
@@ -1435,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-        function buildLeaseAgreementHTML(lease) {
+    function buildLeaseAgreementHTML(lease) {
         const property = lease.properties || {};
         const landlord = lease.landlord || {};
         const tenant = lease.tenant || {};
@@ -2002,10 +2013,6 @@ document.addEventListener('DOMContentLoaded', () => {
         button.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Starting payment...';
 
         try {
-            /*
-              Retrieve the tenant's current Supabase login session.
-              Supabase refreshes the session when necessary.
-            */
             const {
                 data: { session },
                 error: sessionError
@@ -2020,17 +2027,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const propertyId = button.getAttribute('data-property-id');
-            const negotiationId = button.getAttribute('data-negotiation-id') || null;
+            const negotiationId =
+                button.getAttribute('data-negotiation-id') || null;
 
             if (!propertyId) {
-                throw new Error('Missing property information. Please refresh the page.');
+                throw new Error(
+                    'Missing property information. Please refresh the page.'
+                );
             }
 
-            /*
-              Only identifiers needed by the secure server function
-              are supplied. The server determines the tenant, landlord,
-              email, amount and property details.
-            */
             const paymentPayload = {
                 property_id: propertyId,
                 negotiation_id: negotiationId
@@ -2055,21 +2060,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (response.status === 401) {
-                throw new Error('Your login session is invalid or expired. Please log in again.');
+                throw new Error(
+                    'Your login session is invalid or expired. Please log in again.'
+                );
             }
 
             if (!response.ok || !result.authorization_url) {
-                throw new Error(
-                    result.error ||
-                    result.details?.message ||
-                    'Unable to start payment.'
-                );
+                throw new Error(result.error || result.details?.message || 'Unable to start payment.');
             }
 
             window.location.href = result.authorization_url;
         } catch (error) {
             alert('Payment could not start: ' + error.message);
-
             button.disabled = false;
             button.innerHTML = originalText;
         }
@@ -2340,203 +2342,447 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-
-    // 9. FREE AI-ASSISTED SMART RECOMMENDATIONS
+    // 9. LOCATION-AWARE SMART AI RECOMMENDATIONS
     // ==========================================
     const smartRecommendationsGrid = document.getElementById('smart-recommendations-grid');
     const aiLocationInput = document.getElementById('ai-location');
     const aiTypeInput = document.getElementById('ai-type');
     const aiBudgetInput = document.getElementById('ai-budget');
     const aiBedroomsInput = document.getElementById('ai-bedrooms');
+    const aiRadiusInput = document.getElementById('ai-radius');
+    const aiLatitudeInput = document.getElementById('ai-latitude');
+    const aiLongitudeInput = document.getElementById('ai-longitude');
+    const aiLocationStatus = document.getElementById('ai-location-status');
+    const useCurrentLocationBtn = document.getElementById('use-current-location-btn');
     const generateAiMatchBtn = document.getElementById('generate-ai-match-btn');
     const refreshRecommendationsBtn = document.getElementById('refresh-recommendations-btn');
     const aiSummaryCard = document.getElementById('ai-summary-card');
     const aiSummaryText = document.getElementById('ai-summary-text');
 
-    function tokenize(value) {
-        return normalizeText(value)
-            .split(' ')
-            .filter(word => word.length > 1);
-    }
-
-    function levenshteinDistance(a, b) {
-        const matrix = [];
-
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
+    function setPreferredMapPosition(latitude, longitude, shouldCenter = true) {
+        if (
+            latitude === null ||
+            latitude === undefined ||
+            latitude === '' ||
+            longitude === null ||
+            longitude === undefined ||
+            longitude === ''
+        ) {
+            return false;
         }
 
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+
+        if (
+            !Number.isFinite(lat) ||
+            !Number.isFinite(lng) ||
+            lat < -90 ||
+            lat > 90 ||
+            lng < -180 ||
+            lng > 180
+        ) {
+            return false;
         }
 
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
-                    );
-                }
+        if (aiLatitudeInput) aiLatitudeInput.value = lat.toFixed(7);
+        if (aiLongitudeInput) aiLongitudeInput.value = lng.toFixed(7);
+
+        if (preferredLocationMap && window.L) {
+            if (!preferredLocationMarker) {
+                preferredLocationMarker = L.marker([lat, lng]).addTo(preferredLocationMap);
+            } else {
+                preferredLocationMarker.setLatLng([lat, lng]);
+            }
+
+            if (shouldCenter) {
+                preferredLocationMap.setView([lat, lng], 14);
             }
         }
 
-        return matrix[b.length][a.length];
+        if (aiLocationStatus) {
+            aiLocationStatus.innerText = `Preferred point selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            aiLocationStatus.style.color = '#047857';
+        }
+
+        return true;
     }
 
-    function fuzzyIncludes(source, search) {
-        const cleanSource = normalizeText(source);
-        const cleanSearch = normalizeText(search);
+    function initializePreferredLocationMap(latitude = null, longitude = null) {
+        const mapElement = document.getElementById('preferred-location-map');
 
-        if (!cleanSearch) return true;
-        if (cleanSource.includes(cleanSearch)) return true;
+        if (!mapElement) return;
 
-        const sourceTokens = tokenize(cleanSource);
-        const searchTokens = tokenize(cleanSearch);
+        if (!window.L) {
+            if (aiLocationStatus) {
+                aiLocationStatus.innerText = 'The map could not load. Check your internet connection and reopen Smart AI Match.';
+                aiLocationStatus.style.color = '#b91c1c';
+            }
+            return;
+        }
 
-        return searchTokens.some(searchWord => {
-            return sourceTokens.some(sourceWord => {
-                return sourceWord.includes(searchWord) ||
-                    searchWord.includes(sourceWord) ||
-                    levenshteinDistance(sourceWord, searchWord) <= 2;
+        if (!preferredLocationMap) {
+            preferredLocationMap = L.map(mapElement).setView(GHANA_MAP_CENTER, 7);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(preferredLocationMap);
+
+            preferredLocationMap.on('click', event => {
+                setPreferredMapPosition(event.latlng.lat, event.latlng.lng);
             });
+        }
+
+        const hasCoordinates = setPreferredMapPosition(latitude, longitude);
+
+        if (!hasCoordinates && !preferredLocationMarker) {
+            preferredLocationMap.setView(GHANA_MAP_CENTER, 7);
+        }
+
+        setTimeout(() => {
+            preferredLocationMap?.invalidateSize();
+        }, 120);
+    }
+
+    function requestCurrentPositionForPreferences({ automatic = false } = {}) {
+        if (!navigator.geolocation) {
+            const message =
+                'Your browser does not support location access. Click your preferred point on the map instead.';
+
+            if (aiLocationStatus) {
+                aiLocationStatus.innerText = message;
+                aiLocationStatus.style.color = '#b45309';
+            }
+
+            if (!automatic) alert(message);
+            return Promise.resolve(false);
+        }
+
+        if (preferredLocationRequestPromise) {
+            return preferredLocationRequestPromise;
+        }
+
+        const originalText = useCurrentLocationBtn?.innerHTML || '';
+
+        if (useCurrentLocationBtn) {
+            useCurrentLocationBtn.disabled = true;
+            useCurrentLocationBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Locating...';
+        }
+
+        if (aiLocationStatus) {
+            aiLocationStatus.innerText =
+                'Waiting for location permission from your browser...';
+            aiLocationStatus.style.color = '#475569';
+        }
+
+        preferredLocationRequestPromise = new Promise(resolve => {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    setPreferredMapPosition(
+                        position.coords.latitude,
+                        position.coords.longitude
+                    );
+
+                    resolve(true);
+                },
+                error => {
+                    const message =
+                        error.code === 1
+                            ? 'Location access was not enabled. You can still click the map to choose your preferred area.'
+                            : `Your location could not be retrieved: ${error.message}. You can still click the map.`;
+
+                    if (aiLocationStatus) {
+                        aiLocationStatus.innerText = message;
+                        aiLocationStatus.style.color = '#b45309';
+                    }
+
+                    if (!automatic) alert(message);
+                    resolve(false);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 12000,
+                    maximumAge: 60000
+                }
+            );
+        }).finally(() => {
+            if (useCurrentLocationBtn) {
+                useCurrentLocationBtn.disabled = false;
+                useCurrentLocationBtn.innerHTML = originalText;
+            }
+
+            preferredLocationRequestPromise = null;
         });
+
+        return preferredLocationRequestPromise;
+    }
+
+    function useCurrentPositionForPreferences() {
+        return requestCurrentPositionForPreferences({ automatic: false });
+    }
+
+    async function requestLocationOnFirstTenantVisit(userId) {
+        const currentPreferences = getAiPreferences();
+        const alreadyHasCoordinates =
+            Number.isFinite(currentPreferences.latitude) &&
+            Number.isFinite(currentPreferences.longitude);
+
+        if (
+            !userId ||
+            alreadyHasCoordinates ||
+            sessionStorage.getItem(LOCATION_PROMPT_SESSION_KEY) === 'yes'
+        ) {
+            return false;
+        }
+
+        sessionStorage.setItem(LOCATION_PROMPT_SESSION_KEY, 'yes');
+
+        if (navigator.permissions?.query) {
+            try {
+                const permission = await navigator.permissions.query({
+                    name: 'geolocation'
+                });
+
+                if (permission.state === 'denied') {
+                    if (aiLocationStatus) {
+                        aiLocationStatus.innerText =
+                            'Location permission is blocked. Enable it in your browser settings or click the map.';
+                        aiLocationStatus.style.color = '#b45309';
+                    }
+
+                    return false;
+                }
+            } catch {
+                // Some browsers expose Permissions API without geolocation support.
+            }
+        }
+
+        const locationSelected =
+            await requestCurrentPositionForPreferences({ automatic: true });
+
+        if (!locationSelected) return false;
+
+        try {
+            await saveAiPreferences(userId, getAiPreferences());
+        } catch (error) {
+            console.warn(
+                'Location selected but could not be saved:',
+                error.message
+            );
+        }
+
+        return true;
+    }
+
+    function getPrimaryStoredLocation(preferredLocations) {
+        if (Array.isArray(preferredLocations)) {
+            return preferredLocations.find(item => item?.is_primary) || preferredLocations[0] || null;
+        }
+
+        if (preferredLocations && typeof preferredLocations === 'object') {
+            if (Object.prototype.hasOwnProperty.call(preferredLocations, 'primary')) {
+                return preferredLocations.primary;
+            }
+
+            return preferredLocations;
+        }
+
+        return null;
+    }
+
+    async function loadStoredAiPreferences(userId) {
+        if (!userId || aiPreferencesLoadedForUser === userId) {
+            initializePreferredLocationMap(
+                aiLatitudeInput?.value || null,
+                aiLongitudeInput?.value || null
+            );
+            return;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('user_preferences')
+            .select('id, preferred_locations, max_budget_ghs')
+            .eq('tenant_id', userId)
+            .order('last_updated', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('Unable to load saved AI preferences:', error.message);
+            initializePreferredLocationMap();
+            aiPreferencesLoadedForUser = userId;
+            return;
+        }
+
+        const storedLocation = getPrimaryStoredLocation(data?.preferred_locations);
+        const storedProfile = (
+            data?.preferred_locations &&
+            !Array.isArray(data.preferred_locations) &&
+            typeof data.preferred_locations === 'object'
+        )
+            ? data.preferred_locations
+            : {};
+
+        if (storedLocation) {
+            if (aiLocationInput && storedLocation.label) {
+                aiLocationInput.value = storedLocation.label;
+            }
+
+            if (aiRadiusInput && storedLocation.radius_km) {
+                aiRadiusInput.value = String(storedLocation.radius_km);
+            }
+        }
+
+        if (aiBudgetInput && data?.max_budget_ghs) {
+            aiBudgetInput.value = String(data.max_budget_ghs);
+        }
+
+        if (aiTypeInput && storedProfile.property_type) {
+            aiTypeInput.value = storedProfile.property_type;
+        }
+
+        if (aiBedroomsInput && storedProfile.bedrooms !== null && storedProfile.bedrooms !== undefined) {
+            aiBedroomsInput.value = String(storedProfile.bedrooms);
+        }
+
+        initializePreferredLocationMap(
+            storedLocation?.latitude ?? storedLocation?.lat ?? null,
+            storedLocation?.longitude ?? storedLocation?.lng ?? null
+        );
+
+        aiPreferencesLoadedForUser = userId;
+    }
+
+    async function saveAiPreferences(userId, preferences) {
+        if (!userId) return;
+
+        const hasCoordinates =
+            Number.isFinite(preferences.latitude) &&
+            Number.isFinite(preferences.longitude);
+
+        const primaryLocation = (
+            preferences.location ||
+            hasCoordinates
+        )
+            ? {
+                label: preferences.location || 'Selected map point',
+                latitude: hasCoordinates ? preferences.latitude : null,
+                longitude: hasCoordinates ? preferences.longitude : null,
+                radius_km: preferences.radiusKm,
+                is_primary: true
+            }
+            : null;
+
+        const preferredLocations = {
+            primary: primaryLocation,
+            property_type: preferences.type,
+            bedrooms: preferences.bedrooms
+        };
+
+        const preferencePayload = {
+            tenant_id: userId,
+            preferred_locations: preferredLocations,
+            max_budget_ghs: preferences.budget,
+            last_updated: new Date().toISOString()
+        };
+
+        const { data: existing, error: lookupError } = await supabaseClient
+            .from('user_preferences')
+            .select('id')
+            .eq('tenant_id', userId)
+            .order('last_updated', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (lookupError) throw lookupError;
+
+        if (existing?.id) {
+            const { error: updateError } = await supabaseClient
+                .from('user_preferences')
+                .update(preferencePayload)
+                .eq('id', existing.id)
+                .eq('tenant_id', userId);
+
+            if (updateError) throw updateError;
+            return;
+        }
+
+        const preferenceId = window.crypto?.randomUUID
+            ? window.crypto.randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
+                const randomValue = Math.floor(Math.random() * 16);
+                const uuidValue = character === 'x'
+                    ? randomValue
+                    : (randomValue & 0x3) | 0x8;
+
+                return uuidValue.toString(16);
+            });
+
+        const { error: insertError } = await supabaseClient
+            .from('user_preferences')
+            .insert([{
+                id: preferenceId,
+                ...preferencePayload
+            }]);
+
+        if (insertError) throw insertError;
     }
 
     function getAiPreferences() {
+        const latitudeValue = aiLatitudeInput?.value;
+        const longitudeValue = aiLongitudeInput?.value;
+
         return {
             location: aiLocationInput ? aiLocationInput.value.trim() : '',
             type: aiTypeInput ? aiTypeInput.value : 'all',
             budget: aiBudgetInput && aiBudgetInput.value ? Number(aiBudgetInput.value) : null,
-            bedrooms: aiBedroomsInput && aiBedroomsInput.value ? Number(aiBedroomsInput.value) : null
+            bedrooms: aiBedroomsInput && aiBedroomsInput.value ? Number(aiBedroomsInput.value) : null,
+            latitude: latitudeValue !== undefined && latitudeValue !== ''
+                ? Number(latitudeValue)
+                : null,
+            longitude: longitudeValue !== undefined && longitudeValue !== ''
+                ? Number(longitudeValue)
+                : null,
+            radiusKm: aiRadiusInput?.value ? Number(aiRadiusInput.value) : 5
         };
     }
 
-    function calculatePropertyMatchScore(property, preferences, userSignals) {
-        let score = 0;
-        const reasons = [];
-
-        const amenities = property.amenities || {};
-        const propertyType = property.type || amenities.type || '';
-        const propertyLocation = property.location || '';
-        const propertyTitle = property.title || '';
-        const propertyPrice = Number(property.price_ghs || 0);
-        const propertyBedrooms = Number(property.bedrooms ?? amenities.beds ?? 0);
-
-        if (preferences.location) {
-            if (
-                fuzzyIncludes(propertyLocation, preferences.location) ||
-                fuzzyIncludes(propertyTitle, preferences.location)
-            ) {
-                score += 30;
-                reasons.push('location match');
-            }
-        }
-
-        if (preferences.type && preferences.type !== 'all') {
-            if (propertyType === preferences.type) {
-                score += 25;
-                reasons.push('preferred property type');
-            }
-        }
-
-        if (preferences.budget && propertyPrice > 0) {
-            if (propertyPrice <= preferences.budget) {
-                score += 25;
-                reasons.push('within budget');
-            } else {
-                const difference = propertyPrice - preferences.budget;
-                const tolerance = preferences.budget * 0.15;
-
-                if (difference <= tolerance) {
-                    score += 10;
-                    reasons.push('slightly above budget');
-                }
-            }
-        }
-
-        if (
-            preferences.bedrooms !== null &&
-            !Number.isNaN(preferences.bedrooms)
-        ) {
-            if (propertyBedrooms === preferences.bedrooms) {
-                score += 15;
-                reasons.push('bedroom preference match');
-            } else if (
-                Math.abs(propertyBedrooms - preferences.bedrooms) === 1
-            ) {
-                score += 5;
-                reasons.push('close bedroom match');
-            }
-        }
-
-        if (userSignals.savedTypes.has(propertyType)) {
-            score += 12;
-            reasons.push('similar to saved spaces');
-        }
-
-        if (
-            Array.from(userSignals.savedLocations).some(location =>
-                fuzzyIncludes(propertyLocation, location)
-            )
-        ) {
-            score += 12;
-            reasons.push('similar saved location');
-        }
-
-        if (userSignals.negotiatedTypes.has(propertyType)) {
-            score += 10;
-            reasons.push('matches negotiation history');
-        }
-
-        if (
-            Array.from(userSignals.negotiatedLocations).some(location =>
-                fuzzyIncludes(propertyLocation, location)
-            )
-        ) {
-            score += 10;
-            reasons.push('matches previous search interest');
-        }
-
-        if (
-            !preferences.budget &&
-            userSignals.averageSavedBudget > 0 &&
-            propertyPrice > 0
-        ) {
-            if (propertyPrice <= userSignals.averageSavedBudget) {
-                score += 8;
-                reasons.push('budget friendly based on saved spaces');
-            }
-        }
-
-        if (property.status === 'Available') {
-            score += 5;
-        }
-
-        if (reasons.length === 0) {
-            reasons.push('available listing');
-        }
+    function normalizeRecommendationRow(row) {
+        const reasons = Array.isArray(row.match_reasons)
+            ? row.match_reasons.filter(Boolean)
+            : [];
 
         return {
-            score: Math.min(score, 100),
-            reasons
+            id: row.property_id,
+            landlord_id: row.landlord_id,
+            title: row.title,
+            location: row.location,
+            price_ghs: row.price_ghs,
+            description: row.description,
+            amenities: row.amenities || {},
+            status: row.status,
+            images: Array.isArray(row.images) ? row.images : [],
+            type: row.property_type,
+            bedrooms: row.bedrooms,
+            bathrooms: row.bathrooms,
+            gps_latitude: row.gps_latitude,
+            gps_longitude: row.gps_longitude,
+            distanceKm:
+                row.distance_km === null || row.distance_km === undefined
+                    ? null
+                    : Number(row.distance_km),
+            aiScore: Number(row.match_score || 0),
+            aiReasons:
+                reasons.length > 0
+                    ? reasons
+                    : ['available listing'],
+            aiLabel: row.match_label || 'Recommended',
+            primaryImageUrl: row.primary_image_url || null
         };
     }
 
-    function getRecommendationLabel(score, reasons) {
-        if (score >= 75) return 'Best Match';
-        if (reasons.includes('within budget')) return 'Budget Friendly';
-        if (reasons.includes('similar to saved spaces')) return 'Similar to Saved';
-        if (reasons.includes('location match')) return 'Location Match';
-        if (score >= 45) return 'Good Match';
-
-        return 'Recommended';
-    }
-
-    async function loadSmartRecommendations() {
+    async function loadSmartRecommendations(options = {}) {
         if (!smartRecommendationsGrid) return;
 
         smartRecommendationsGrid.innerHTML = `
@@ -2546,10 +2792,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        const {
-            data: { user },
-            error: authError
-        } = await supabaseClient.auth.getUser();
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
         if (authError || !user) {
             smartRecommendationsGrid.innerHTML = `
@@ -2562,149 +2805,78 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        await loadStoredAiPreferences(user.id);
+
+        await requestLocationOnFirstTenantVisit(user.id);
+
         const preferences = getAiPreferences();
 
+        if (options.persistPreferences === true) {
+            try {
+                await saveAiPreferences(user.id, preferences);
+            } catch (preferenceError) {
+                console.warn('Unable to save AI preferences:', preferenceError.message);
+                alert(`Your matches can still be generated, but the preferences could not be saved: ${preferenceError.message}`);
+            }
+        }
+
         try {
-            const {
-                data: properties,
-                error: propertiesError
-            } = await supabaseClient
-                .from('properties')
-                .select('*, property_images(storage_path)')
-                .eq('status', 'Available')
-                .order('created_at', { ascending: false });
-
-            if (propertiesError) throw propertiesError;
-
-            const {
-                data: savedItems,
-                error: savedError
-            } = await supabaseClient
-                .from('saved_properties')
-                .select(`
-                    property_id,
-                    properties (
-                        id,
-                        title,
-                        location,
-                        price_ghs,
-                        type,
-                        bedrooms,
-                        bathrooms,
-                        amenities
-                    )
-                `)
-                .eq('user_id', user.id);
-
-            if (savedError) throw savedError;
-
-            const {
-                data: negotiations,
-                error: negotiationsError
-            } = await supabaseClient
-                .from('negotiations')
-                .select(`
-                    id,
-                    offer_amount,
-                    status,
-                    properties (
-                        id,
-                        title,
-                        location,
-                        price_ghs,
-                        type,
-                        bedrooms,
-                        bathrooms,
-                        amenities
-                    )
-                `)
-                .eq('tenant_id', user.id);
-
-            if (negotiationsError) throw negotiationsError;
-
-            const userSignals = {
-                savedTypes: new Set(),
-                savedLocations: new Set(),
-                negotiatedTypes: new Set(),
-                negotiatedLocations: new Set(),
-                averageSavedBudget: 0
-            };
-
-            let savedBudgetTotal = 0;
-            let savedBudgetCount = 0;
-
-            (savedItems || []).forEach(item => {
-                const property = item.properties;
-                if (!property) return;
-
-                const amenities = property.amenities || {};
-                const type = property.type || amenities.type;
-                const location = property.location;
-                const price = Number(property.price_ghs || 0);
-
-                if (type) userSignals.savedTypes.add(type);
-                if (location) userSignals.savedLocations.add(location);
-
-                if (price > 0) {
-                    savedBudgetTotal += price;
-                    savedBudgetCount++;
+            const { data, error } = await supabaseClient.rpc(
+                'get_ai_property_recommendations',
+                {
+                    p_tenant_latitude:
+                        Number.isFinite(preferences.latitude)
+                            ? preferences.latitude
+                            : null,
+                    p_tenant_longitude:
+                        Number.isFinite(preferences.longitude)
+                            ? preferences.longitude
+                            : null,
+                    p_radius_km: preferences.radiusKm,
+                    p_location_text: preferences.location || null,
+                    p_property_type:
+                        preferences.type && preferences.type !== 'all'
+                            ? preferences.type
+                            : null,
+                    p_max_budget: preferences.budget,
+                    p_bedrooms:
+                        Number.isFinite(preferences.bedrooms)
+                            ? preferences.bedrooms
+                            : null,
+                    p_max_results: 12
                 }
-            });
+            );
 
-            if (savedBudgetCount > 0) {
-                userSignals.averageSavedBudget =
-                    savedBudgetTotal / savedBudgetCount;
+            if (error) throw error;
+
+            const recommendations =
+                (data || []).map(normalizeRecommendationRow);
+
+            renderSmartRecommendations(recommendations, preferences);
+
+            if (options.persistPreferences === true) {
+                if (preferences.location) {
+                    recordTenantActivity({
+                        activity_type: 'search_location',
+                        search_location: preferences.location
+                    });
+                }
+
+                if (preferences.type && preferences.type !== 'all') {
+                    recordTenantActivity({
+                        activity_type: 'filter_type',
+                        property_type: preferences.type
+                    });
+                }
+
+                if (preferences.budget) {
+                    recordTenantActivity({
+                        activity_type: 'filter_budget',
+                        budget: preferences.budget
+                    });
+                }
             }
 
-            (negotiations || []).forEach(item => {
-                const property = item.properties;
-                if (!property) return;
-
-                const amenities = property.amenities || {};
-                const type = property.type || amenities.type;
-                const location = property.location;
-
-                if (type) userSignals.negotiatedTypes.add(type);
-                if (location) {
-                    userSignals.negotiatedLocations.add(location);
-                }
-            });
-
-            let scoredProperties = (properties || []).map(property => {
-                const match = calculatePropertyMatchScore(
-                    property,
-                    preferences,
-                    userSignals
-                );
-
-                return {
-                    ...property,
-                    aiScore: match.score,
-                    aiReasons: match.reasons,
-                    aiLabel: getRecommendationLabel(
-                        match.score,
-                        match.reasons
-                    )
-                };
-            });
-
-            const hasStrongPreference =
-                preferences.location ||
-                (preferences.type && preferences.type !== 'all') ||
-                preferences.budget ||
-                preferences.bedrooms !== null;
-
-            if (hasStrongPreference) {
-                scoredProperties = scoredProperties.filter(
-                    property => property.aiScore >= 15
-                );
-            }
-
-            scoredProperties.sort((a, b) => b.aiScore - a.aiScore);
-
-            const topRecommendations = scoredProperties.slice(0, 12);
-
-            renderSmartRecommendations(topRecommendations, userSignals);
             await loadTenantNotifications();
         } catch (error) {
             console.error('Smart recommendation error:', error);
@@ -2719,15 +2891,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderSmartRecommendations(recommendations, userSignals) {
+    function renderSmartRecommendations(recommendations, preferences) {
         if (!smartRecommendationsGrid) return;
 
         if (!recommendations || recommendations.length === 0) {
+            const hasCoordinates =
+                Number.isFinite(preferences.latitude) &&
+                Number.isFinite(preferences.longitude);
+
             smartRecommendationsGrid.innerHTML = `
                 <div class="empty-state" style="grid-column: 1 / -1;">
                     <i class="ph ph-magnifying-glass"></i>
                     <h3>No Smart Matches Found</h3>
-                    <p>Try increasing your budget, changing the location, or selecting Any Property Type.</p>
+                    <p>
+                        ${
+                            hasCoordinates
+                                ? `No available pinned property matched within ${preferences.radiusKm} km. Increase the distance or change a preference.`
+                                : 'Enable location, click a point on the map, increase your budget, or change a preference.'
+                        }
+                    </p>
                 </div>
             `;
 
@@ -2740,84 +2922,91 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const savedSignalsCount =
-            userSignals.savedTypes.size +
-            userSignals.savedLocations.size;
-
-        const negotiationSignalsCount =
-            userSignals.negotiatedTypes.size +
-            userSignals.negotiatedLocations.size;
+        const distanceMatches = recommendations.filter(
+            property => Number.isFinite(property.distanceKm)
+        );
+        const nearestDistance =
+            distanceMatches.length > 0
+                ? Math.min(
+                    ...distanceMatches.map(property => property.distanceKm)
+                )
+                : null;
 
         if (aiSummaryCard && aiSummaryText) {
             aiSummaryCard.style.display = 'block';
 
-            aiSummaryText.innerText =
-                `The system analyzed ${recommendations.length} top available listing(s) using your selected preferences` +
-                `${savedSignalsCount > 0 ? ', saved spaces' : ''}` +
-                `${negotiationSignalsCount > 0 ? ', and negotiation history' : ''}. ` +
-                'Higher scores mean the property is closer to your preferred location, type, budget, and previous activity.';
+            if (nearestDistance !== null) {
+                aiSummaryText.innerText =
+                    `Found ${recommendations.length} top available match(es) within ${preferences.radiusKm} km. ` +
+                    `The nearest is ${nearestDistance.toFixed(1)} km away. ` +
+                    'Scores combine real distance, budget, property type, bedrooms, saved spaces, searches, and offer activity.';
+            } else {
+                aiSummaryText.innerText =
+                    `Found ${recommendations.length} top available match(es) using typed-location fallback. ` +
+                    'For exact nearest-property results, enable location or select a point on the map and ensure landlords pin their listings.';
+            }
         }
 
         smartRecommendationsGrid.innerHTML = recommendations.map(property => {
             let imageUrl =
                 'https://via.placeholder.com/400x250?text=No+Image+Available';
 
-            if (
-                property.property_images &&
-                property.property_images.length > 0
-            ) {
-                imageUrl = property.property_images[0].storage_path;
-            } else if (
-                Array.isArray(property.images) &&
-                property.images.length > 0
-            ) {
+            if (property.primaryImageUrl) {
+                imageUrl = property.primaryImageUrl;
+            } else if (Array.isArray(property.images) && property.images.length > 0) {
                 imageUrl = property.images[0];
             }
 
             const amenities = property.amenities || {};
             const beds = property.bedrooms ?? amenities.beds ?? '-';
             const baths = property.bathrooms ?? amenities.baths ?? '-';
-            const propType =
-                property.type || amenities.type || 'Listing Asset';
+            const propType = property.type || amenities.type || 'Listing Asset';
 
-            const price = Number(property.price_ghs || 0).toLocaleString(
-                'en-GH',
-                {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                }
-            );
+            const price = Number(property.price_ghs || 0).toLocaleString('en-GH', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
 
             const reasonsText = property.aiReasons
+                .filter(reason => !/\bkm away$/i.test(reason))
                 .slice(0, 3)
-                .map(reason =>
-                    reason.replace(/\b\w/g, character =>
-                        character.toUpperCase()
-                    )
-                )
-                .join(' • ');
+                .map(reason => reason.replace(/\b\w/g, char => char.toUpperCase()))
+                .join(' • ') || 'Distance-Based Location Match';
+
+            const distanceMarkup =
+                Number.isFinite(property.distanceKm)
+                    ? `
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; color:#047857; font-size:0.88rem; font-weight:600;">
+                            <span style="display:flex; align-items:center; gap:5px;">
+                                <i class="ph ph-navigation-arrow"></i>
+                                ${property.distanceKm.toFixed(1)} km away
+                            </span>
+                            <span style="color:#64748b; font-weight:500;">
+                                Within ${preferences.radiusKm} km radius
+                            </span>
+                        </div>
+                    `
+                    : `
+                        <div style="display:flex; align-items:center; gap:5px; margin-bottom:12px; color:#b45309; font-size:0.84rem; font-weight:600;">
+                            <i class="ph ph-map-pin-line"></i>
+                            Text-location fallback
+                        </div>
+                    `;
 
             return `
                 <div class="property-card" data-id="${property.id}" style="cursor: pointer;">
                     <div class="image-container">
-                        <img
-                            src="${imageUrl}"
-                            alt="${property.title || 'Recommended Property'}"
-                            loading="lazy"
-                        >
+                        <img src="${imageUrl}" alt="${property.title || 'Recommended Property'}" loading="lazy">
 
                         <div class="badge-verified" style="color: #7c3aed;">
-                            <i class="ph ph-sparkle"></i>
-                            ${property.aiLabel}
+                            <i class="ph ph-sparkle"></i> ${property.aiLabel}
                         </div>
                     </div>
 
                     <div class="card-content">
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                             <div class="property-type">${propType}</div>
-                            <span class="status-badge status-accepted">
-                                ${property.aiScore}% Match
-                            </span>
+                            <span class="status-badge status-accepted">${property.aiScore}% Match</span>
                         </div>
 
                         <h3 style="margin: 8px 0; font-size: 1.15rem; font-weight: 600;">
@@ -2825,19 +3014,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         </h3>
 
                         <div class="location" style="display: flex; align-items: center; gap: 4px; color: #64748b; margin-bottom: 12px;">
-                            <i class="ph ph-map-pin"></i>
-                            ${property.location || 'Location Unspecified'}
+                            <i class="ph ph-map-pin"></i> ${property.location || 'Location Unspecified'}
                         </div>
+
+                        ${distanceMarkup}
 
                         <div class="features-summary" style="display: flex; gap: 16px; color: #64748b; font-size: 0.9rem; margin-bottom: 12px;">
                             <span style="display: flex; align-items: center; gap: 6px;">
-                                <i class="ph ph-bed"></i>
-                                ${beds} Bed
+                                <i class="ph ph-bed"></i> ${beds} Bed
                             </span>
 
                             <span style="display: flex; align-items: center; gap: 6px;">
-                                <i class="ph ph-bathtub"></i>
-                                ${baths} Bath
+                                <i class="ph ph-bathtub"></i> ${baths} Bath
                             </span>
                         </div>
 
@@ -2849,10 +3037,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="price" style="font-size: 1.25rem; font-weight: 700; color: #0d8abc;">
                                 GHS ${price}
                             </div>
-
-                            <span class="price-period" style="color: #64748b; font-size: 0.9rem;">
-                                / month
-                            </span>
+                            <span class="price-period" style="color: #64748b; font-size: 0.9rem;">/ month</span>
                         </div>
 
                         <div style="display: flex; gap: 8px; margin-top: 16px;">
@@ -2870,14 +3055,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    document.addEventListener('click', event => {
-        const aiViewBtn = event.target.closest('.ai-view-property-btn');
-        const aiCard = event.target.closest(
-            '#smart-recommendations-grid .property-card'
-        );
+    document.addEventListener('click', (e) => {
+        const aiViewBtn = e.target.closest('.ai-view-property-btn');
+        const aiCard = e.target.closest('#smart-recommendations-grid .property-card');
 
         if (aiViewBtn) {
-            event.stopPropagation();
+            e.stopPropagation();
 
             const propertyId = aiViewBtn.getAttribute('data-id');
 
@@ -2886,9 +3069,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 property_id: propertyId
             });
 
-            window.location.href =
-                `property-details.html?id=${propertyId}`;
-
+            window.location.href = `property-details.html?id=${propertyId}`;
             return;
         }
 
@@ -2901,21 +3082,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     property_id: propertyId
                 });
 
-                window.location.href =
-                    `property-details.html?id=${propertyId}`;
+                window.location.href = `property-details.html?id=${propertyId}`;
             }
         }
     });
 
-    generateAiMatchBtn?.addEventListener(
-        'click',
-        loadSmartRecommendations
-    );
+    useCurrentLocationBtn?.addEventListener('click', async () => {
+        const locationSelected = await useCurrentPositionForPreferences();
 
-    refreshRecommendationsBtn?.addEventListener(
-        'click',
-        loadSmartRecommendations
-    );
+        if (locationSelected) {
+            loadSmartRecommendations({ persistPreferences: true });
+        }
+    });
+
+    generateAiMatchBtn?.addEventListener('click', () => {
+        loadSmartRecommendations({ persistPreferences: true });
+    });
+
+    refreshRecommendationsBtn?.addEventListener('click', () => {
+        loadSmartRecommendations();
+    });
 
     window.loadSmartRecommendations = loadSmartRecommendations;
     window.loadTenantNotifications = loadTenantNotifications;

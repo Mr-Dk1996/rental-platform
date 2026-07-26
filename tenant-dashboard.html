@@ -6,9 +6,11 @@
     <title>Tenant Dashboard | RentHaven Ghana</title>
     
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="icon" type="image/png" href="images/renthaven-logo.png">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body class="dashboard-body">
@@ -222,7 +224,7 @@
                         <div>
                             <h1>Smart AI Match</h1>
                             <p class="text-muted">
-                                Personalized room recommendations based on your saved spaces, budget, location interests, and negotiation activity.
+                                Find nearby rooms using your permitted location or a point you select on the map, combined with budget and account activity.
                             </p>
                         </div>
 
@@ -263,10 +265,45 @@
                                 <label for="ai-bedrooms">Bedrooms</label>
                                 <input type="number" id="ai-bedrooms" placeholder="e.g. 1" min="0">
                             </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="ai-radius">Maximum Distance</label>
+                                <select id="ai-radius">
+                                    <option value="2">Within 2 km</option>
+                                    <option value="5" selected>Within 5 km</option>
+                                    <option value="10">Within 10 km</option>
+                                    <option value="20">Within 20 km</option>
+                                    <option value="50">Within 50 km</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="ai-latitude">
+                        <input type="hidden" id="ai-longitude">
+
+                        <div style="margin-top: 18px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
+                                <div>
+                                    <strong style="display:block; color:#0f172a;">Choose your preferred point</strong>
+                                    <small id="ai-location-status" class="text-muted">
+                                        Your browser will ask once for location permission. You can decline and click a preferred point on the map instead.
+                                    </small>
+                                </div>
+
+                                <button class="btn-outline" id="use-current-location-btn" type="button">
+                                    <i class="ph ph-crosshair"></i> Use My Location
+                                </button>
+                            </div>
+
+                            <div
+                                id="preferred-location-map"
+                                style="height:300px; width:100%; border:1px solid #cbd5e1; border-radius:14px; overflow:hidden;"
+                                aria-label="Map for selecting a preferred rental location"
+                            ></div>
                         </div>
 
                         <button class="btn-primary" id="generate-ai-match-btn" style="margin-top: 18px;">
-                            <i class="ph ph-magic-wand"></i> Generate Smart Matches
+                            <i class="ph ph-magic-wand"></i> Save Preferences and Generate Matches
                         </button>
                     </div>
 
@@ -1134,7 +1171,7 @@
 
     <script src="js/supabase-config.js"></script>
     <script src="js/properties.js"></script>
-    <script src="js/dashboard.js?v=payments1"></script>
+    <script src="js/dashboard.js?v=location-ai2"></script>
     <script src="js/ai-chatbot.js"></script>
 </body>
 </html>

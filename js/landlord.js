@@ -4,6 +4,10 @@
     // ==========================================
     let currentUser = null;
     let activeNegotiationId = null;
+    let propertyLocationMap = null;
+    let propertyLocationMarker = null;
+
+    const GHANA_MAP_CENTER = [7.9465, -1.0232];
 
     const propertiesGrid = document.getElementById('landlord-properties-grid');
     const incomingOffersList = document.getElementById('incoming-offers-list');
@@ -26,6 +30,10 @@
     const propEditId = document.getElementById('prop-edit-id');
     const propTitle = document.getElementById('prop-title');
     const propLocation = document.getElementById('prop-location');
+    const propLatitude = document.getElementById('prop-latitude');
+    const propLongitude = document.getElementById('prop-longitude');
+    const propLocationStatus = document.getElementById('prop-location-status');
+    const usePropertyLocationBtn = document.getElementById('use-property-location-btn');
     const propDescription = document.getElementById('prop-description');
     const propPrice = document.getElementById('prop-price');
     const propType = document.getElementById('prop-type');
@@ -526,10 +534,152 @@
     // ==========================================
     // 5. PROPERTY MODAL HELPERS
     // ==========================================
+    function setPropertyMapPosition(latitude, longitude, shouldCenter = true) {
+        if (
+            latitude === null ||
+            latitude === undefined ||
+            latitude === '' ||
+            longitude === null ||
+            longitude === undefined ||
+            longitude === ''
+        ) {
+            return false;
+        }
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+
+        if (
+            !Number.isFinite(lat) ||
+            !Number.isFinite(lng) ||
+            lat < -90 ||
+            lat > 90 ||
+            lng < -180 ||
+            lng > 180
+        ) {
+            return false;
+        }
+
+        if (propLatitude) propLatitude.value = lat.toFixed(7);
+        if (propLongitude) propLongitude.value = lng.toFixed(7);
+
+        if (propertyLocationMap && window.L) {
+            if (!propertyLocationMarker) {
+                propertyLocationMarker = L.marker([lat, lng]).addTo(propertyLocationMap);
+            } else {
+                propertyLocationMarker.setLatLng([lat, lng]);
+            }
+
+            if (shouldCenter) {
+                propertyLocationMap.setView([lat, lng], 15);
+            }
+        }
+
+        if (propLocationStatus) {
+            propLocationStatus.innerText = `Map pin selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            propLocationStatus.style.color = '#047857';
+        }
+
+        return true;
+    }
+
+    function clearPropertyMapPosition() {
+        if (propLatitude) propLatitude.value = '';
+        if (propLongitude) propLongitude.value = '';
+
+        if (propertyLocationMarker && propertyLocationMap) {
+            propertyLocationMap.removeLayer(propertyLocationMarker);
+            propertyLocationMarker = null;
+        }
+
+        if (propLocationStatus) {
+            propLocationStatus.innerText = 'Click the map to place the property pin.';
+            propLocationStatus.style.color = '';
+        }
+    }
+
+    function initializePropertyLocationMap(latitude = null, longitude = null) {
+        const mapElement = document.getElementById('property-location-map');
+
+        if (!mapElement) return;
+
+        if (!window.L) {
+            if (propLocationStatus) {
+                propLocationStatus.innerText = 'The map could not load. Check your internet connection and reopen this form.';
+                propLocationStatus.style.color = '#b91c1c';
+            }
+            return;
+        }
+
+        if (!propertyLocationMap) {
+            propertyLocationMap = L.map(mapElement).setView(GHANA_MAP_CENTER, 7);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(propertyLocationMap);
+
+            propertyLocationMap.on('click', (event) => {
+                setPropertyMapPosition(event.latlng.lat, event.latlng.lng);
+            });
+        }
+
+        const hasCoordinates = setPropertyMapPosition(latitude, longitude);
+
+        if (!hasCoordinates) {
+            clearPropertyMapPosition();
+            propertyLocationMap.setView(GHANA_MAP_CENTER, 7);
+        }
+
+        setTimeout(() => {
+            propertyLocationMap?.invalidateSize();
+        }, 120);
+    }
+
+    function useCurrentPositionForProperty() {
+        if (!navigator.geolocation) {
+            alert('Your browser does not support location access. Please click the property position on the map.');
+            return;
+        }
+
+        const originalText = usePropertyLocationBtn?.innerHTML || '';
+
+        if (usePropertyLocationBtn) {
+            usePropertyLocationBtn.disabled = true;
+            usePropertyLocationBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Locating...';
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                setPropertyMapPosition(position.coords.latitude, position.coords.longitude);
+
+                if (usePropertyLocationBtn) {
+                    usePropertyLocationBtn.disabled = false;
+                    usePropertyLocationBtn.innerHTML = originalText;
+                }
+            },
+            error => {
+                alert(`Unable to retrieve your location: ${error.message}. You can still click the map to place the pin.`);
+
+                if (usePropertyLocationBtn) {
+                    usePropertyLocationBtn.disabled = false;
+                    usePropertyLocationBtn.innerHTML = originalText;
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 12000,
+                maximumAge: 60000
+            }
+        );
+    }
+
     function bindPropertyModal() {
         openPropertyModalBtn?.addEventListener('click', () => {
             openAddPropertyModal();
         });
+
+        usePropertyLocationBtn?.addEventListener('click', useCurrentPositionForProperty);
 
         closePropertyModalBtn?.addEventListener('click', () => {
             closePropertyModal();
@@ -563,6 +713,8 @@
         if (propEditId) propEditId.value = '';
         if (propTitle) propTitle.value = '';
         if (propLocation) propLocation.value = '';
+        if (propLatitude) propLatitude.value = '';
+        if (propLongitude) propLongitude.value = '';
         if (propDescription) propDescription.value = '';
         if (propPrice) propPrice.value = '';
         if (propType) propType.value = 'Single Room';
@@ -581,6 +733,7 @@
         }
 
         addPropertyModal.style.display = 'flex';
+        initializePropertyLocationMap();
     }
 
     function openEditPropertyModal(property) {
@@ -594,6 +747,8 @@
         if (propEditId) propEditId.value = property.id || '';
         if (propTitle) propTitle.value = property.title || '';
         if (propLocation) propLocation.value = property.location || '';
+        if (propLatitude) propLatitude.value = property.gps_latitude ?? '';
+        if (propLongitude) propLongitude.value = property.gps_longitude ?? '';
         if (propDescription) propDescription.value = property.description || '';
         if (propPrice) propPrice.value = property.price_ghs || '';
         if (propType) propType.value = property.type || property.amenities?.type || 'Single Room';
@@ -618,6 +773,7 @@
         }
 
         addPropertyModal.style.display = 'flex';
+        initializePropertyLocationMap(property.gps_latitude, property.gps_longitude);
     }
 
     function closePropertyModal() {
@@ -901,6 +1057,8 @@
 
         const title = propTitle?.value.trim();
         const location = propLocation?.value.trim();
+        const latitude = Number(propLatitude?.value);
+        const longitude = Number(propLongitude?.value);
         const description = propDescription?.value.trim() || null;
         const price = parseFloat(propPrice?.value);
         const type = propType?.value;
@@ -921,6 +1079,18 @@
             return;
         }
 
+        if (
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            latitude < -90 ||
+            latitude > 90 ||
+            longitude < -180 ||
+            longitude > 180
+        ) {
+            alert('Please click the map to set the property location before saving.');
+            return;
+        }
+
         if (mode === 'add' && selectedFiles.length === 0) {
             alert('Please upload at least one property image.');
             return;
@@ -935,6 +1105,8 @@
             const propertyData = {
                 title,
                 location,
+                gps_latitude: latitude,
+                gps_longitude: longitude,
                 description,
                 price_ghs: price,
                 bedrooms: beds,
