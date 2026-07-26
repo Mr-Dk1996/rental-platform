@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let preferredLocationAccuracyCircle = null;
     let aiPreferencesLoadedForUser = null;
     let preferredLocationRequestPromise = null;
+    let cancelPreferredLocationRequest = null;
+    let smartRecommendationRequestSequence = 0;
 
     const GHANA_MAP_CENTER = [7.9465, -1.0232];
     const LOCATION_PROMPT_SESSION_KEY = 'renthaven-location-prompted';
@@ -2394,6 +2396,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
 
+        if (locationDetails.source === 'manual') {
+            /*
+              A manual map click is an intentional, precise fallback. Cancel any
+              in-progress desktop geolocation sampling so its later timeout
+              cannot show a stale poor-accuracy warning over the chosen pin.
+            */
+            cancelPreferredLocationRequest?.();
+
+            try {
+                sessionStorage.setItem(LOCATION_PROMPT_SESSION_KEY, 'yes');
+            } catch {
+                // Matching still works when browser storage is unavailable.
+            }
+        }
+
         if (aiLatitudeInput) aiLatitudeInput.value = lat.toFixed(7);
         if (aiLongitudeInput) aiLongitudeInput.value = lng.toFixed(7);
 
@@ -2550,6 +2567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         preferredLocationRequestPromise = new Promise(resolve => {
             let bestPosition = null;
             let watchId = null;
+            let sampleTimer = null;
             let finished = false;
 
             const finish = (success, message = '') => {
@@ -2561,6 +2579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 clearTimeout(sampleTimer);
+                cancelPreferredLocationRequest = null;
 
                 if (!success && message && aiLocationStatus) {
                     aiLocationStatus.innerText = message;
@@ -2572,6 +2591,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 resolve(success);
+            };
+
+            cancelPreferredLocationRequest = () => {
+                finish(false);
             };
 
             const acceptBestPosition = () => {
@@ -2597,9 +2620,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         )
                         : 'unknown';
 
+                    const currentPreferences = getAiPreferences();
+                    const hasSelectedMapPoint =
+                        Number.isFinite(currentPreferences.latitude) &&
+                        Number.isFinite(currentPreferences.longitude);
+                    const fallbackInstruction = hasSelectedMapPoint
+                        ? 'Your existing selected map point remains active for AI matching.'
+                        : 'Click your actual area on the map.';
+
                     finish(
                         false,
-                        `Your device could only estimate your location within ${accuracyLabel}, so it was not used for AI matching. Click your actual area on the map.`
+                        `Your device could only estimate your location within ${accuracyLabel}, so it was not used for AI matching. ${fallbackInstruction}`
                     );
                     return;
                 }
@@ -2617,7 +2648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 finish(true);
             };
 
-            const sampleTimer = setTimeout(
+            sampleTimer = setTimeout(
                 acceptBestPosition,
                 LOCATION_SAMPLE_WINDOW_MS
             );
@@ -2958,6 +2989,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadSmartRecommendations(options = {}) {
         if (!smartRecommendationsGrid) return;
 
+        const requestSequence = ++smartRecommendationRequestSequence;
+        const isCurrentRequest = () =>
+            requestSequence === smartRecommendationRequestSequence;
+
         smartRecommendationsGrid.innerHTML = `
             <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: #64748b;">
                 <i class="ph ph-spinner ph-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
@@ -2968,19 +3003,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
         if (authError || !user) {
-            smartRecommendationsGrid.innerHTML = `
-                <div class="empty-state" style="grid-column: 1 / -1;">
-                    <i class="ph ph-lock"></i>
-                    <h3>Login Required</h3>
-                    <p>Please log in as a tenant to use Smart AI Match.</p>
-                </div>
-            `;
+            if (isCurrentRequest()) {
+                smartRecommendationsGrid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <i class="ph ph-lock"></i>
+                        <h3>Login Required</h3>
+                        <p>Please log in as a tenant to use Smart AI Match.</p>
+                    </div>
+                `;
+            }
             return;
         }
 
         await loadStoredAiPreferences(user.id);
 
-        await requestLocationOnFirstTenantVisit(user.id);
+        if (options.requestLocation === true) {
+            await requestLocationOnFirstTenantVisit(user.id);
+        }
+
+        if (!isCurrentRequest()) return;
 
         const preferences = getAiPreferences();
 
@@ -3021,6 +3062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             if (error) throw error;
+            if (!isCurrentRequest()) return;
 
             const recommendations =
                 (data || []).map(normalizeRecommendationRow);
@@ -3054,6 +3096,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Smart recommendation error:', error);
 
+            if (!isCurrentRequest()) return;
+
             smartRecommendationsGrid.innerHTML = `
                 <div class="empty-state" style="grid-column: 1 / -1;">
                     <i class="ph ph-warning"></i>
@@ -3061,6 +3105,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p>${error.message || 'Unable to generate recommendations at this time.'}</p>
                 </div>
             `;
+        }
+    }
+
+    async function runSmartRecommendationAction(
+        triggerButton,
+        options,
+        loadingLabel
+    ) {
+        const originalMarkup = triggerButton?.innerHTML || '';
+
+        if (triggerButton) {
+            triggerButton.disabled = true;
+            triggerButton.innerHTML =
+                `<i class="ph ph-spinner ph-spin"></i> ${loadingLabel}`;
+        }
+
+        try {
+            await loadSmartRecommendations(options);
+        } finally {
+            if (triggerButton) {
+                triggerButton.disabled = false;
+                triggerButton.innerHTML = originalMarkup;
+            }
         }
     }
 
@@ -3260,20 +3327,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    useCurrentLocationBtn?.addEventListener('click', async () => {
+    useCurrentLocationBtn?.addEventListener('click', async (event) => {
+        event.preventDefault();
+
         const locationSelected = await useCurrentPositionForPreferences();
 
         if (locationSelected) {
-            loadSmartRecommendations({ persistPreferences: true });
+            await runSmartRecommendationAction(
+                useCurrentLocationBtn,
+                { persistPreferences: true },
+                'Generating...'
+            );
         }
     });
 
-    generateAiMatchBtn?.addEventListener('click', () => {
-        loadSmartRecommendations({ persistPreferences: true });
+    generateAiMatchBtn?.addEventListener('click', async (event) => {
+        event.preventDefault();
+
+        await runSmartRecommendationAction(
+            generateAiMatchBtn,
+            { persistPreferences: true },
+            'Generating Matches...'
+        );
     });
 
-    refreshRecommendationsBtn?.addEventListener('click', () => {
-        loadSmartRecommendations();
+    refreshRecommendationsBtn?.addEventListener('click', async (event) => {
+        event.preventDefault();
+
+        await runSmartRecommendationAction(
+            refreshRecommendationsBtn,
+            { persistPreferences: false },
+            'Refreshing...'
+        );
     });
 
     window.loadSmartRecommendations = loadSmartRecommendations;
@@ -3291,6 +3376,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTenantNotifications();
 
     if (typeof loadSmartRecommendations === 'function') {
-        loadSmartRecommendations();
+        loadSmartRecommendations({ requestLocation: true });
     }
 });

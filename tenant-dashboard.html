@@ -228,7 +228,7 @@
                             </p>
                         </div>
 
-                        <button class="btn-outline" id="refresh-recommendations-btn">
+                        <button class="btn-outline" id="refresh-recommendations-btn" type="button">
                             <i class="ph ph-arrows-clockwise"></i> Refresh Matches
                         </button>
                     </div>
@@ -285,7 +285,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
                                 <div>
                                     <strong style="display:block; color:#0f172a;">Choose your preferred point</strong>
-                                    <small id="ai-location-status" class="text-muted">
+                                    <small id="ai-location-status" class="text-muted" role="status" aria-live="polite">
                                         Your browser will ask once for location permission. You can decline and click a preferred point on the map instead.
                                     </small>
                                 </div>
@@ -302,7 +302,7 @@
                             ></div>
                         </div>
 
-                        <button class="btn-primary" id="generate-ai-match-btn" style="margin-top: 18px;">
+                        <button class="btn-primary" id="generate-ai-match-btn" type="button" style="margin-top: 18px;">
                             <i class="ph ph-magic-wand"></i> Save Preferences and Generate Matches
                         </button>
                     </div>
@@ -1171,7 +1171,7 @@
 
     <script src="js/supabase-config.js"></script>
     <script src="js/properties.js"></script>
-    <script src="js/dashboard.js?v=location-ai3"></script>
+    <script src="js/dashboard.js?v=location-ai4"></script>
     <script src="js/ai-chatbot.js"></script>
 </body>
 </html>
