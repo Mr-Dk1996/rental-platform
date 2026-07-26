@@ -104,6 +104,19 @@
         return `${cleanHash.slice(0, 18)}...${cleanHash.slice(-10)}`;
     }
 
+    function renderLedgerCheck(value) {
+        const isValid = value === true;
+        const statusClass = isValid ? 'valid' : 'invalid';
+        const icon = isValid ? 'ph-check-circle' : 'ph-warning-circle';
+        const text = isValid ? 'Pass' : 'Fail';
+
+        return `
+            <span class="ledger-check-badge ${statusClass}">
+                <i class="ph ${icon}"></i> ${text}
+            </span>
+        `;
+    }
+
     function bindNavigation() {
         const navItems = document.querySelectorAll('.nav-item[data-target]');
         const views = document.querySelectorAll('.view-section');
@@ -782,7 +795,7 @@
 
     adminPaymentLedgerBody.innerHTML = `
         <tr>
-            <td colspan="9">
+            <td colspan="11">
                 <div class="ledger-empty-state">
                     <i class="ph ph-spinner ph-spin"></i>
                     <h3>Loading payment ledger</h3>
@@ -822,7 +835,7 @@
 
             adminPaymentLedgerBody.innerHTML = `
                 <tr>
-                    <td colspan="9">
+                    <td colspan="11">
                         <div class="ledger-empty-state">
                             <i class="ph ph-link-simple-break"></i>
                             <h3>No Ledger Blocks Yet</h3>
@@ -842,7 +855,13 @@
                     </td>
 
                     <td>
-                        <span class="ledger-reference">${row.payment_reference || 'N/A'}</span>
+                        <span class="ledger-reference">${row.ledger_reference || 'N/A'}</span>
+                    </td>
+
+                    <td>
+                        <span class="ledger-reference" style="color:#475569;">
+                            ${row.payment_reference || 'N/A'}
+                        </span>
                     </td>
 
                     <td>
@@ -858,6 +877,14 @@
                         <br>
                         <span style="font-size:0.78rem; color:#64748b;">
                             ${row.property_location || 'Location not available'}
+                        </span>
+                    </td>
+
+                    <td>
+                        <strong>${row.hash_algorithm || 'SHA-256'}</strong>
+                        <br>
+                        <span style="font-size:0.76rem; color:#64748b;">
+                            Ledger V${row.ledger_version || 1}
                         </span>
                     </td>
 
@@ -883,7 +910,7 @@
 
         adminPaymentLedgerBody.innerHTML = `
             <tr>
-                <td colspan="9">
+                <td colspan="11">
                     <div class="ledger-empty-state">
                         <i class="ph ph-warning-circle"></i>
                         <h3>Unable to Load Ledger</h3>
@@ -907,11 +934,11 @@
 
         adminLedgerVerificationBody.innerHTML = `
             <tr>
-                <td colspan="4">
+                <td colspan="9">
                     <div class="ledger-empty-state">
                         <i class="ph ph-spinner ph-spin"></i>
-                        <h3>Verifying ledger</h3>
-                        <p>Checking block links and hash references...</p>
+                    <h3>Verifying ledger</h3>
+                    <p>Recalculating SHA-256 hashes and validating every payment proof...</p>
                     </div>
                 </td>
             </tr>
@@ -930,7 +957,7 @@
 
                 adminLedgerVerificationBody.innerHTML = `
                     <tr>
-                        <td colspan="4">
+                        <td colspan="9">
                             <div class="ledger-empty-state">
                                 <i class="ph ph-link-simple-break"></i>
                                 <h3>No Blocks to Verify</h3>
@@ -947,7 +974,7 @@
 
             if (ledgerIsValid) {
                 setText('admin-ledger-status-text', 'Valid');
-                updateLedgerValidityBadge('valid', 'Ledger chain valid');
+                updateLedgerValidityBadge('valid', 'All V2 checks passed');
             } else {
                 setText('admin-ledger-status-text', 'Broken');
                 updateLedgerValidityBadge('broken', 'Ledger issue found');
@@ -957,6 +984,7 @@
                 const statusClass = item.is_valid ? 'status-accepted' : 'status-rejected';
                 const statusText = item.is_valid ? 'Valid' : 'Invalid';
                 const icon = item.is_valid ? 'ph-check-circle' : 'ph-warning-circle';
+                const checks = item.checks || {};
 
                 return `
                     <tr>
@@ -965,8 +993,24 @@
                         </td>
 
                         <td>
-                            <span class="ledger-reference">${item.payment_reference || 'N/A'}</span>
+                            <span class="ledger-reference">${item.ledger_reference || 'N/A'}</span>
                         </td>
+
+                        <td>
+                            <span class="ledger-reference" style="color:#475569;">
+                                ${item.payment_reference || 'N/A'}
+                            </span>
+                        </td>
+
+                        <td title="Stored: ${item.stored_hash || 'N/A'}&#10;Recalculated: ${item.recalculated_hash || 'N/A'}">
+                            ${renderLedgerCheck(checks.sha256_hash)}
+                        </td>
+
+                        <td>${renderLedgerCheck(checks.previous_hash_link && checks.sequence)}</td>
+
+                        <td>${renderLedgerCheck(checks.block_data && checks.ledger_reference && checks.hash_algorithm && checks.ledger_version)}</td>
+
+                        <td>${renderLedgerCheck(checks.payment_record)}</td>
 
                         <td>
                             <span class="status-badge ${statusClass}">
@@ -974,14 +1018,16 @@
                             </span>
                         </td>
 
-                        <td>${item.issue || 'No issue reported'}</td>
+                        <td>
+                            ${item.issue || 'No issue reported'}
+                        </td>
                     </tr>
                 `;
             }).join('');
 
             if (showAlert) {
                 alert(ledgerIsValid
-                    ? 'Ledger verification completed. All blocks are valid.'
+                    ? 'Blockchain V2 verification completed. Every sequence, link, hash, reference, block-data and payment-record check passed.'
                     : 'Ledger verification completed. Some blocks need attention.'
                 );
             }
@@ -993,7 +1039,7 @@
 
             adminLedgerVerificationBody.innerHTML = `
                 <tr>
-                    <td colspan="4">
+                    <td colspan="9">
                         <div class="ledger-empty-state">
                             <i class="ph ph-warning-circle"></i>
                             <h3>Verification Failed</h3>

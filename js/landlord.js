@@ -1675,6 +1675,25 @@
 
             const payments = paymentRows || [];
 
+            const { data: ledgerRows, error: ledgerError } = await supabaseClient
+                .from('payment_ledger')
+                .select(`
+                    payment_id,
+                    block_number,
+                    ledger_reference,
+                    current_hash,
+                    hash_algorithm,
+                    ledger_version
+                `)
+                .eq('landlord_id', currentUser.id);
+
+            if (ledgerError) throw ledgerError;
+
+            const ledgerMap = (ledgerRows || []).reduce((map, ledger) => {
+                map[ledger.payment_id] = ledger;
+                return map;
+            }, {});
+
             updateLandlordPaymentSummary(payments);
 
             if (!landlordPaymentsBody) return;
@@ -1738,13 +1757,28 @@
                 const channel = getPaymentChannelLabel(payment.payment_channel);
                 const datePaid = formatDateTime(payment.paid_at || payment.created_at);
                 const statusClass = payment.payment_status === 'paid' ? 'status-accepted' : 'status-pending';
+                const ledger = ledgerMap[payment.id];
 
                 return `
                     <tr>
                         <td>
                             <span class="landlord-payment-reference">
-                                ${payment.payment_reference || 'N/A'}
+                                Payment: ${payment.payment_reference || 'N/A'}
                             </span>
+                            ${
+                                ledger
+                                    ? `
+                                        <br>
+                                        <span class="landlord-payment-reference" style="color:#047857;">
+                                            Ledger: ${ledger.ledger_reference}
+                                        </span>
+                                        <br>
+                                        <span style="font-size:0.72rem; color:#64748b;">
+                                            Block #${ledger.block_number} · ${ledger.hash_algorithm || 'SHA-256'} · V${ledger.ledger_version || 1}
+                                        </span>
+                                    `
+                                    : ''
+                            }
                         </td>
 
                         <td>

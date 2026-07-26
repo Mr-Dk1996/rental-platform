@@ -205,6 +205,92 @@
             line-height: 1.5;
         }
 
+        .ledger-reference-explainer {
+            background: #ffffff;
+            border: 1px solid #bae6fd;
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 22px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        }
+
+        .ledger-reference-explainer h3 {
+            margin: 0 0 6px;
+            color: #0f172a;
+        }
+
+        .ledger-reference-explainer > p {
+            margin: 0 0 16px;
+            color: #64748b;
+            line-height: 1.55;
+        }
+
+        .ledger-reference-flow {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .ledger-reference-step {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .ledger-reference-step span {
+            display: inline-flex;
+            width: 26px;
+            height: 26px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #0d8abc;
+            color: #ffffff;
+            font-weight: 800;
+            margin-bottom: 9px;
+        }
+
+        .ledger-reference-step strong {
+            display: block;
+            color: #0f172a;
+            margin-bottom: 5px;
+        }
+
+        .ledger-reference-step p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        .ledger-reference-step code {
+            color: #075985;
+            font-size: 0.76rem;
+            word-break: break-word;
+        }
+
+        .ledger-check-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: 0.74rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .ledger-check-badge.valid {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .ledger-check-badge.invalid {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
         .ledger-validity-badge {
             display: inline-flex;
             align-items: center;
@@ -271,7 +357,7 @@
 
         .ledger-table {
             width: 100%;
-            min-width: 980px;
+            min-width: 1280px;
             border-collapse: collapse;
             background: #ffffff;
         }
@@ -329,6 +415,12 @@
             margin: 0 0 6px 0;
             color: #0f172a;
             font-size: 1rem;
+        }
+
+        @media (max-width: 900px) {
+            .ledger-reference-flow {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media print {
@@ -681,9 +773,9 @@
                 <section id="payment-ledger" class="view-section">
                     <div class="view-header">
                         <div>
-                            <h1>Payment Ledger</h1>
+                            <h1>Blockchain V2 Payment Ledger</h1>
                             <p class="text-muted">
-                                Review verified rent payments and inspect the blockchain-style ledger hashes.
+                                Review verified rent payments, deterministic ledger references and full SHA-256 integrity proofs.
                             </p>
                         </div>
 
@@ -728,10 +820,10 @@
 
                     <div class="ledger-health-card">
                         <div>
-                            <h3>Blockchain Integrity Check</h3>
+                            <h3>Hybrid Blockchain-Style Integrity Check</h3>
                             <p>
-                                Each successful rent payment is stored as a ledger block. The previous hash and
-                                current hash help detect silent changes in the payment history.
+                                V2 recalculates every SHA-256 block hash and verifies the chain sequence,
+                                previous-hash link, ledger reference, block data and original payment record.
                             </p>
                         </div>
 
@@ -740,11 +832,48 @@
                         </span>
                     </div>
 
+                    <div class="ledger-reference-explainer">
+                        <h3>How the two references are generated</h3>
+                        <p>
+                            The Paystack payment reference and Blockchain V2 ledger reference are different identifiers
+                            created at different stages of the verified payment process.
+                        </p>
+
+                        <div class="ledger-reference-flow">
+                            <div class="ledger-reference-step">
+                                <span>1</span>
+                                <strong>Payment reference</strong>
+                                <p>
+                                    The trusted payment server creates <code>RH-&lt;timestamp&gt;-&lt;random&gt;</code>
+                                    before Paystack checkout.
+                                </p>
+                            </div>
+
+                            <div class="ledger-reference-step">
+                                <span>2</span>
+                                <strong>SHA-256 ledger block</strong>
+                                <p>
+                                    After Paystack verifies the amount and currency, the transaction-locked ledger
+                                    creates the next block and links it to the previous block hash.
+                                </p>
+                            </div>
+
+                            <div class="ledger-reference-step">
+                                <span>3</span>
+                                <strong>Ledger reference</strong>
+                                <p>
+                                    The system deterministically creates
+                                    <code>RHL-&lt;block number&gt;-&lt;first 16 hash characters&gt;</code>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="ledger-panel">
                         <div class="ledger-panel-header">
                             <div>
                                 <h3>Verified Payment Blocks</h3>
-                                <p>Paid rent transactions linked with blockchain-style hashes.</p>
+                                <p>Append-only payment blocks with separate transaction and ledger identifiers.</p>
                             </div>
 
                             <button class="btn-outline" id="refresh-ledger-btn" type="button">
@@ -757,11 +886,13 @@
                                 <thead>
                                     <tr>
                                         <th>Block</th>
-                                        <th>Reference</th>
+                                        <th>Ledger Reference</th>
+                                        <th>Payment Reference</th>
                                         <th>Amount</th>
                                         <th>Tenant</th>
                                         <th>Landlord</th>
                                         <th>Property</th>
+                                        <th>Proof</th>
                                         <th>Previous Hash</th>
                                         <th>Current Hash</th>
                                         <th>Date</th>
@@ -769,7 +900,7 @@
                                 </thead>
                                 <tbody id="admin-payment-ledger-body">
                                     <tr>
-                                        <td colspan="9">
+                                        <td colspan="11">
                                             <div class="ledger-empty-state">
                                                 <i class="ph ph-spinner ph-spin"></i>
                                                 <h3>Loading payment ledger</h3>
@@ -786,7 +917,7 @@
                         <div class="ledger-panel-header">
                             <div>
                                 <h3>Ledger Verification Results</h3>
-                                <p>Shows whether every block points correctly to the previous block.</p>
+                                <p>Recalculates every hash and validates the complete payment proof.</p>
                             </div>
                         </div>
 
@@ -795,18 +926,23 @@
                                 <thead>
                                     <tr>
                                         <th>Block</th>
-                                        <th>Reference</th>
-                                        <th>Status</th>
+                                        <th>Ledger Reference</th>
+                                        <th>Payment Reference</th>
+                                        <th>Hash</th>
+                                        <th>Chain Link</th>
+                                        <th>Block Data</th>
+                                        <th>Payment Data</th>
+                                        <th>Overall</th>
                                         <th>Result</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-ledger-verification-body">
                                     <tr>
-                                        <td colspan="4">
+                                        <td colspan="9">
                                             <div class="ledger-empty-state">
                                                 <i class="ph ph-shield-check"></i>
                                                 <h3>No verification run yet</h3>
-                                                <p>Click Verify Ledger to inspect the blockchain links.</p>
+                                                <p>Click Verify Ledger to recalculate hashes and inspect every proof component.</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -957,6 +1093,6 @@
     </div>
 
     <script src="js/supabase-config.js"></script>
-    <script src="js/admin.js?v=ledger3"></script>
+    <script src="js/admin.js?v=blockchain-v2"></script>
 </body>
 </html>

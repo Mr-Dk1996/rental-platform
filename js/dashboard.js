@@ -1865,6 +1865,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (paymentError) throw paymentError;
 
+            const { data: ledgerRows, error: ledgerError } = await supabaseClient
+                .from('payment_ledger')
+                .select(`
+                    id,
+                    payment_id,
+                    block_number,
+                    ledger_reference,
+                    current_hash,
+                    hash_algorithm,
+                    ledger_version,
+                    created_at
+                `)
+                .eq('tenant_id', user.id);
+
+            if (ledgerError) throw ledgerError;
+
+            const ledgerMap = (ledgerRows || []).reduce((map, ledger) => {
+                map[ledger.payment_id] = ledger;
+                return map;
+            }, {});
+
             const landlordIds = [...new Set((payments || []).map(item => item.landlord_id).filter(Boolean))];
 
             let landlordMap = {};
@@ -1887,11 +1908,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 .eq('tenant_id', user.id)
                 .eq('payment_status', 'paid');
 
-            const { count: ledgerCount } = await supabaseClient
-                .from('payment_ledger')
-                .select('id', { count: 'exact', head: true })
-                .eq('tenant_id', user.id);
-
             if (paymentActiveLeaseCount) {
                 paymentActiveLeaseCount.innerText = String((acceptedLeases || []).length);
             }
@@ -1901,11 +1917,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (paymentLedgerCount) {
-                paymentLedgerCount.innerText = String(ledgerCount || 0);
+                paymentLedgerCount.innerText = String((ledgerRows || []).length);
             }
 
-            renderTenantPaymentCard(acceptedLeases || [], payments || [], user);
-            renderTenantPaymentHistory(payments || [], landlordMap);
+            renderTenantPaymentCard(acceptedLeases || [], payments || [], user, ledgerMap);
+            renderTenantPaymentHistory(payments || [], landlordMap, ledgerMap);
         } catch (error) {
             console.error('Unable to load tenant payments:', error.message);
 
@@ -1926,7 +1942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderTenantPaymentCard(acceptedLeases, payments, user) {
+    function renderTenantPaymentCard(acceptedLeases, payments, user, ledgerMap = {}) {
         if (!tenantPaymentCard) return;
 
         if (!acceptedLeases || acceptedLeases.length === 0) {
@@ -1962,6 +1978,10 @@ document.addEventListener('DOMContentLoaded', () => {
             payment.negotiation_id === lease.id &&
             String(payment.payment_status || '').toLowerCase() === 'pending'
         );
+
+        const existingLedger = existingPaidPayment
+            ? ledgerMap[existingPaidPayment.id]
+            : null;
 
         const acceptedDate = formatPaymentDate(lease.updated_at || lease.created_at);
 
@@ -2006,9 +2026,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? `
                             <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; padding: 14px; border-radius: 14px; font-weight: 700;">
                                 <i class="ph ph-check-circle"></i>
-                                This lease payment has been verified and secured in the blockchain ledger.
+                                This lease payment has been verified and recorded in the hybrid blockchain-style ledger.
                                 <br>
-                                <small style="color: #065f46;">Reference: ${existingPaidPayment.payment_reference || 'N/A'}</small>
+                                <small style="color: #065f46;">
+                                    Payment reference: ${existingPaidPayment.payment_reference || 'N/A'}
+                                    <br>
+                                    Ledger reference: ${existingLedger?.ledger_reference || 'Ledger proof pending'}
+                                    ${existingLedger ? `<br>Block #${existingLedger.block_number} · ${existingLedger.hash_algorithm || 'SHA-256'} · V${existingLedger.ledger_version || 1}` : ''}
+                                </small>
                             </div>
                         `
                         : `
@@ -2038,7 +2063,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
 
                             <p style="font-size: 0.82rem; color: #64748b; margin: 0;">
-                                You will be redirected to Paystack checkout. RentHaven will verify the payment and create a blockchain ledger block after success.
+                                You will be redirected to Paystack checkout. RentHaven will verify the payment and create a hybrid blockchain-style ledger proof after success.
                             </p>
                         `
                 }
@@ -2046,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    function renderTenantPaymentHistory(payments, landlordMap = {}) {
+    function renderTenantPaymentHistory(payments, landlordMap = {}, ledgerMap = {}) {
         if (!tenantPaymentHistory) return;
 
         if (!payments || payments.length === 0) {
@@ -2065,6 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const landlordName = landlordMap[payment.landlord_id] || 'Landlord';
             const reference = payment.payment_reference || 'No reference';
             const dateValue = payment.paid_at || payment.created_at;
+            const ledger = ledgerMap[payment.id];
 
             return `
                 <div class="payment-history-item">
@@ -2079,7 +2105,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <p>Amount: <strong>GHS ${formatGhsAmount(payment.amount)}</strong></p>
-                    <p>Reference: <strong>${reference}</strong></p>
+                    <p>Payment reference: <strong>${reference}</strong></p>
+                    ${
+                        ledger
+                            ? `
+                                <p>Ledger reference: <strong>${ledger.ledger_reference}</strong></p>
+                                <p>
+                                    Proof: Block #${ledger.block_number} · ${ledger.hash_algorithm || 'SHA-256'} · V${ledger.ledger_version || 1}
+                                </p>
+                            `
+                            : ''
+                    }
                     <p>Date: ${formatPaymentDate(dateValue)}</p>
 
                     ${
