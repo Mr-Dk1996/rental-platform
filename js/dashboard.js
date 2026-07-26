@@ -9,11 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let browsePersonalizationTimer = null;
     let preferredLocationMap = null;
     let preferredLocationMarker = null;
+    let preferredLocationAccuracyCircle = null;
     let aiPreferencesLoadedForUser = null;
     let preferredLocationRequestPromise = null;
 
     const GHANA_MAP_CENTER = [7.9465, -1.0232];
     const LOCATION_PROMPT_SESSION_KEY = 'renthaven-location-prompted';
+    const GOOD_LOCATION_ACCURACY_METERS = 100;
+    const MAX_USABLE_LOCATION_ACCURACY_METERS = 1500;
+    const LOCATION_SAMPLE_WINDOW_MS = 18000;
 
     // ==========================================
     // 1. NAVIGATION LOGIC
@@ -2359,7 +2363,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiSummaryCard = document.getElementById('ai-summary-card');
     const aiSummaryText = document.getElementById('ai-summary-text');
 
-    function setPreferredMapPosition(latitude, longitude, shouldCenter = true) {
+    function setPreferredMapPosition(
+        latitude,
+        longitude,
+        shouldCenter = true,
+        locationDetails = {}
+    ) {
         if (
             latitude === null ||
             latitude === undefined ||
@@ -2395,14 +2404,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 preferredLocationMarker.setLatLng([lat, lng]);
             }
 
+            if (preferredLocationAccuracyCircle) {
+                preferredLocationMap.removeLayer(preferredLocationAccuracyCircle);
+                preferredLocationAccuracyCircle = null;
+            }
+
+            const accuracy = Number(locationDetails.accuracy);
+
+            if (
+                locationDetails.source === 'device' &&
+                Number.isFinite(accuracy) &&
+                accuracy > 0
+            ) {
+                preferredLocationAccuracyCircle = L.circle([lat, lng], {
+                    radius: accuracy,
+                    color: accuracy <= GOOD_LOCATION_ACCURACY_METERS
+                        ? '#047857'
+                        : '#d97706',
+                    fillColor: accuracy <= GOOD_LOCATION_ACCURACY_METERS
+                        ? '#10b981'
+                        : '#f59e0b',
+                    fillOpacity: 0.12,
+                    weight: 2
+                }).addTo(preferredLocationMap);
+            }
+
             if (shouldCenter) {
-                preferredLocationMap.setView([lat, lng], 14);
+                if (
+                    preferredLocationAccuracyCircle &&
+                    Number(locationDetails.accuracy) > 250
+                ) {
+                    preferredLocationMap.fitBounds(
+                        preferredLocationAccuracyCircle.getBounds(),
+                        {
+                            padding: [24, 24],
+                            maxZoom: 16
+                        }
+                    );
+                } else {
+                    preferredLocationMap.setView([lat, lng], 16);
+                }
             }
         }
 
         if (aiLocationStatus) {
-            aiLocationStatus.innerText = `Preferred point selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            aiLocationStatus.style.color = '#047857';
+            const accuracy = Number(locationDetails.accuracy);
+
+            if (
+                locationDetails.source === 'device' &&
+                Number.isFinite(accuracy)
+            ) {
+                const accuracyLabel = accuracy >= 1000
+                    ? `${(accuracy / 1000).toFixed(1)} km`
+                    : `${Math.round(accuracy)} m`;
+
+                aiLocationStatus.innerText =
+                    `Current location selected — estimated accuracy: ${accuracyLabel}.`;
+                aiLocationStatus.style.color =
+                    accuracy <= GOOD_LOCATION_ACCURACY_METERS
+                        ? '#047857'
+                        : '#b45309';
+            } else {
+                aiLocationStatus.innerText =
+                    `Preferred point selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                aiLocationStatus.style.color = '#047857';
+            }
         }
 
         return true;
@@ -2430,7 +2496,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(preferredLocationMap);
 
             preferredLocationMap.on('click', event => {
-                setPreferredMapPosition(event.latlng.lat, event.latlng.lng);
+                setPreferredMapPosition(
+                    event.latlng.lat,
+                    event.latlng.lng,
+                    true,
+                    { source: 'manual' }
+                );
             });
         }
 
@@ -2477,33 +2548,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         preferredLocationRequestPromise = new Promise(resolve => {
-            navigator.geolocation.getCurrentPosition(
+            let bestPosition = null;
+            let watchId = null;
+            let finished = false;
+
+            const finish = (success, message = '') => {
+                if (finished) return;
+                finished = true;
+
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+
+                clearTimeout(sampleTimer);
+
+                if (!success && message && aiLocationStatus) {
+                    aiLocationStatus.innerText = message;
+                    aiLocationStatus.style.color = '#b45309';
+                }
+
+                if (!success && message && !automatic) {
+                    alert(message);
+                }
+
+                resolve(success);
+            };
+
+            const acceptBestPosition = () => {
+                if (!bestPosition) {
+                    finish(
+                        false,
+                        'Your device did not return a location. Click your actual area on the map instead.'
+                    );
+                    return;
+                }
+
+                const accuracy = Number(bestPosition.coords.accuracy);
+
+                if (
+                    !Number.isFinite(accuracy) ||
+                    accuracy > MAX_USABLE_LOCATION_ACCURACY_METERS
+                ) {
+                    const accuracyLabel = Number.isFinite(accuracy)
+                        ? (
+                            accuracy >= 1000
+                                ? `${(accuracy / 1000).toFixed(1)} km`
+                                : `${Math.round(accuracy)} m`
+                        )
+                        : 'unknown';
+
+                    finish(
+                        false,
+                        `Your device could only estimate your location within ${accuracyLabel}, so it was not used for AI matching. Click your actual area on the map.`
+                    );
+                    return;
+                }
+
+                setPreferredMapPosition(
+                    bestPosition.coords.latitude,
+                    bestPosition.coords.longitude,
+                    true,
+                    {
+                        source: 'device',
+                        accuracy
+                    }
+                );
+
+                finish(true);
+            };
+
+            const sampleTimer = setTimeout(
+                acceptBestPosition,
+                LOCATION_SAMPLE_WINDOW_MS
+            );
+
+            watchId = navigator.geolocation.watchPosition(
                 position => {
-                    setPreferredMapPosition(
-                        position.coords.latitude,
-                        position.coords.longitude
+                    const accuracy = Number(position.coords.accuracy);
+                    const bestAccuracy = Number(
+                        bestPosition?.coords?.accuracy
                     );
 
-                    resolve(true);
-                },
-                error => {
-                    const message =
-                        error.code === 1
-                            ? 'Location access was not enabled. You can still click the map to choose your preferred area.'
-                            : `Your location could not be retrieved: ${error.message}. You can still click the map.`;
-
-                    if (aiLocationStatus) {
-                        aiLocationStatus.innerText = message;
-                        aiLocationStatus.style.color = '#b45309';
+                    if (
+                        !bestPosition ||
+                        (
+                            Number.isFinite(accuracy) &&
+                            (
+                                !Number.isFinite(bestAccuracy) ||
+                                accuracy < bestAccuracy
+                            )
+                        )
+                    ) {
+                        bestPosition = position;
                     }
 
-                    if (!automatic) alert(message);
-                    resolve(false);
+                    if (aiLocationStatus && Number.isFinite(accuracy)) {
+                        const accuracyLabel = accuracy >= 1000
+                            ? `${(accuracy / 1000).toFixed(1)} km`
+                            : `${Math.round(accuracy)} m`;
+
+                        aiLocationStatus.innerText =
+                            `Improving location accuracy… current estimate: ${accuracyLabel}.`;
+                        aiLocationStatus.style.color = '#475569';
+                    }
+
+                    if (
+                        Number.isFinite(accuracy) &&
+                        accuracy <= GOOD_LOCATION_ACCURACY_METERS
+                    ) {
+                        bestPosition = position;
+                        acceptBestPosition();
+                    }
+                },
+                error => {
+                    if (bestPosition) {
+                        acceptBestPosition();
+                        return;
+                    }
+
+                    const message =
+                        error.code === 1
+                            ? 'Location access was not enabled. Click your preferred point on the map instead.'
+                            : `Your location could not be retrieved: ${error.message}. Click your preferred point on the map instead.`;
+
+                    finish(false, message);
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 12000,
-                    maximumAge: 60000
+                    timeout: LOCATION_SAMPLE_WINDOW_MS,
+                    maximumAge: 0
                 }
             );
         }).finally(() => {
