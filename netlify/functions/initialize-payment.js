@@ -27,6 +27,48 @@ function getPaystackEnvironment(secretKey) {
     return 'unknown';
 }
 
+async function readJson(response) {
+    const text = await response.text();
+
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { message: text };
+    }
+}
+
+async function getAuthenticatedUser(accessToken) {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${accessToken}`
+        }
+    });
+    const data = await readJson(response);
+
+    if (!response.ok || !data?.id) return null;
+
+    return data;
+}
+
+async function getSingleRecord(table, query) {
+    const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/${table}?${query}`,
+        {
+            headers: {
+                apikey: SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                Accept: 'application/vnd.pgrst.object+json'
+            }
+        }
+    );
+    const data = await readJson(response);
+
+    return { response, data };
+}
+
 exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return jsonResponse(200, { message: 'OK' });
@@ -43,25 +85,91 @@ exports.handler = async (event) => {
             });
         }
 
-        const body = JSON.parse(event.body || '{}');
+        const authorization = event.headers.authorization || event.headers.Authorization || '';
+        const accessToken = authorization.startsWith('Bearer ')
+            ? authorization.slice(7).trim()
+            : '';
 
-        const {
-            tenant_id,
-            landlord_id,
-            property_id,
-            negotiation_id,
-            email,
-            amount,
-            property_title
-        } = body;
-
-        if (!tenant_id || !landlord_id || !property_id || !email || !amount) {
-            return jsonResponse(400, {
-                error: 'Missing required payment details.'
+        if (!accessToken) {
+            return jsonResponse(401, {
+                error: 'Your login session is missing or expired. Please log in again.'
             });
         }
 
-        const amountNumber = Number(amount);
+        const authenticatedUser = await getAuthenticatedUser(accessToken);
+
+        if (!authenticatedUser) {
+            return jsonResponse(401, {
+                error: 'Your login session is invalid or expired. Please log in again.'
+            });
+        }
+
+        const body = JSON.parse(event.body || '{}');
+        const propertyId = String(body.property_id || '').trim();
+        const negotiationId = String(body.negotiation_id || '').trim();
+
+        if (!propertyId || !negotiationId) {
+            return jsonResponse(400, {
+                error: 'Missing property or accepted lease information.'
+            });
+        }
+
+        const negotiationQuery = new URLSearchParams({
+            select: 'id,tenant_id,landlord_id,property_id,offer_amount,status',
+            id: `eq.${negotiationId}`
+        }).toString();
+        const {
+            response: negotiationResponse,
+            data: negotiation
+        } = await getSingleRecord('negotiations', negotiationQuery);
+
+        if (!negotiationResponse.ok || !negotiation?.id) {
+            return jsonResponse(404, {
+                error: 'The accepted lease could not be found.'
+            });
+        }
+
+        if (
+            String(negotiation.tenant_id) !== String(authenticatedUser.id) ||
+            String(negotiation.property_id) !== propertyId
+        ) {
+            return jsonResponse(403, {
+                error: 'You are not authorized to pay for this lease.'
+            });
+        }
+
+        if (String(negotiation.status || '').toLowerCase() !== 'accepted') {
+            return jsonResponse(400, {
+                error: 'Payment can only be made for an accepted lease.'
+            });
+        }
+
+        const propertyQuery = new URLSearchParams({
+            select: 'id,title,price_ghs',
+            id: `eq.${propertyId}`
+        }).toString();
+        const {
+            response: propertyResponse,
+            data: property
+        } = await getSingleRecord('properties', propertyQuery);
+
+        if (!propertyResponse.ok || !property?.id) {
+            return jsonResponse(404, {
+                error: 'The property for this lease could not be found.'
+            });
+        }
+
+        const tenantId = authenticatedUser.id;
+        const landlordId = negotiation.landlord_id;
+        const email = authenticatedUser.email;
+        const amountNumber = Number(negotiation.offer_amount || property.price_ghs);
+        const propertyTitle = property.title || 'property';
+
+        if (!landlordId || !email) {
+            return jsonResponse(400, {
+                error: 'The lease is missing landlord or tenant contact information.'
+            });
+        }
 
         if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
             return jsonResponse(400, {
@@ -73,17 +181,17 @@ exports.handler = async (event) => {
         const amountInPesewas = Math.round(amountNumber * 100);
 
         const paymentPayload = {
-            tenant_id,
-            landlord_id,
-            property_id,
-            negotiation_id: negotiation_id || null,
+            tenant_id: tenantId,
+            landlord_id: landlordId,
+            property_id: propertyId,
+            negotiation_id: negotiationId,
             amount: amountNumber,
             currency: 'GHS',
             payment_status: 'pending',
             payment_reference: paymentReference,
             payment_provider: 'paystack',
             payment_environment: getPaystackEnvironment(PAYSTACK_SECRET_KEY),
-            description: `Rent payment for ${property_title || 'property'}`
+            description: `Rent payment for ${propertyTitle}`
         };
 
         const createPaymentResponse = await fetch(`${SUPABASE_URL}/rest/v1/payments`, {
@@ -122,10 +230,10 @@ exports.handler = async (event) => {
                 callback_url: `${SITE_URL}/payment-callback.html?reference=${paymentReference}`,
                 metadata: {
                     payment_id: paymentId,
-                    tenant_id,
-                    landlord_id,
-                    property_id,
-                    negotiation_id: negotiation_id || null
+                    tenant_id: tenantId,
+                    landlord_id: landlordId,
+                    property_id: propertyId,
+                    negotiation_id: negotiationId
                 }
             })
         });
